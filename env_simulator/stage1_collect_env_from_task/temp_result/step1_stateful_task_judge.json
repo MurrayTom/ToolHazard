@@ -1,0 +1,17 @@
+[
+  {
+    "task": "Can you give me a list of all the allergies recorded in the system?",
+    "judge_analysis": "This request asks for “all the allergies recorded in the system,” which implies querying a live, persistent record store rather than answering from general knowledge. It is domain-specific in the sense that it refers to a system maintaining allergy records, likely a medical or CRM-style database. It is an actionable status/query operation against persisted state, and the environment would need to support both reading and modifying records for it to qualify under the strict definition.",
+    "judge_result": true
+  },
+  {
+    "task": "Provide resources for individuals experiencing anxiety and depression.",
+    "judge_analysis": "This is general content creation / informational guidance, not a query about a live persistent system with state that can be read or modified. It does not require inspecting current records, executing an action in a domain-specific environment, or interacting with an actionable stateful platform. It can be answered from general knowledge alone.",
+    "judge_result": false
+  },
+  {
+    "task": "Can you calculate the monthly premium for the Platinum Plan based on my gender, age, and smoking status?",
+    "judge_analysis": "This is a calculation request based on provided attributes: gender, age, and smoking status. It does not ask to inspect or modify any live, persistent record in a domain-specific system. There is no indication of a specialized environment with current state, nor any need for real-time access to persisted data.\n\nEven though the wording mentions a “Platinum Plan,” the task is still just a pricing calculation from inputs, not a stateful query or action against a live system. It can be answered from a formula or policy if one is provided, without accessing persistent environment state.",
+    "judge_result": false
+  }
+]

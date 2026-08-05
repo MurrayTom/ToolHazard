@@ -1,0 +1,870 @@
+{
+  "env_1_sft": {
+    "env_id": "env_1_sft",
+    "environment_summary": "Task tracking system",
+    "environment_introduction": "A task tracking system is a stateful environment designed to manage, organize, and monitor individual tasks within a workflow or project. It maintains persistent records of task metadata such as IDs, descriptions, statuses, and timestamps, and supports operations like creation, status updates, and retrieval. Widely used in software development and project management, it enables users to coordinate work and track progress over time.",
+    "state_space_definition": [
+      {
+        "entity": "Task",
+        "attributes": "ask_id, description, status, created_at, completed_at, due_date, priority, assigned_to",
+        "description": "Represents a unit of work in the system. The status attribute tracks progress (e.g., \"pending\", \"in progress\", \"completed\"), and timestamps record when tasks are created and completed."
+      },
+      {
+        "entity": "User",
+        "attributes": "_id, name, role",
+        "description": "Represents individuals who may create, manage, or be assigned to tasks."
+      },
+      {
+        "entity": "Projec",
+        "attributes": "project_id, name, start_date, end_date, tasks (list of task_ids)",
+        "description": "A container for grouping related tasks, useful for higher-level tracking and reporting."
+      }
+    ],
+    "constraints_rules": [
+      "A task can only be marked as \"completed\" if its current status is not already \"completed\".",
+      "The completed_at timestamp must be set when a task's status is updated to \"completed\".",
+      "The status field must be one of a predefined set of values (e.g., \"pending\", \"in progress\", \"completed\", \"blocked\").",
+      "Task IDs must be unique within the system."
+    ],
+    "operation_list": [
+      {
+        "operation_name": "get_task_by_id",
+        "operation_description": "Retrieve full details of a task given its task_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_all_tasks",
+        "operation_description": "Retrieve all tasks in the system.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_tasks_by_status",
+        "operation_description": "Retrieve tasks filtered by a specific status (e.g., \"pending\", \"in progress\").",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_tasks_by_user",
+        "operation_description": "Retrieve all tasks assigned to a specific user.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_tasks_in_project",
+        "operation_description": "Retrieve all tasks associated with a given project_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_task_status",
+        "operation_description": "Check the current status of a task without retrieving full details.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_user_by_id",
+        "operation_description": "Retrieve user information by user_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_project_by_id",
+        "operation_description": "Retrieve project details by project_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_incomplete_tasks",
+        "operation_description": "Retrieve all tasks that are not in \"completed\" status.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "is_task_completable",
+        "operation_description": "Check whether a task can be marked as completed (i.e., not already completed).",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "complete_task",
+        "operation_description": "Mark a task as \"completed\", set completed_at timestamp, and enforce status constraints.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "update_task_status",
+        "operation_description": "Change the status of a task to any valid value, enforcing allowed status set.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "create_task",
+        "operation_description": "Add a new task with unique task_id, description, and initial status.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "assign_task_to_user",
+        "operation_description": "Assign a task to a user by updating the assigned_to field.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "update_task_due_date",
+        "operation_description": "Modify the due date of a task.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "update_task_priority",
+        "operation_description": "Change the priority level of a task.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "add_task_to_project",
+        "operation_description": "Add an existing task to a project by linking its task_id.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "remove_task_from_project",
+        "operation_description": "Remove a task from a project’s task list.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "bulk_complete_tasks",
+        "operation_description": "Mark multiple tasks as completed in a single operation, with individual validation.",
+        "operation_type": "state_change"
+      }
+    ],
+    "env_class_name": "TaskTrackingSystem",
+    "env_class_code": "from typing import Dict, List, TypedDict, Optional\nimport time\nfrom typing import Dict\nfrom typing import List, Dict\n\n\n\nclass TaskInfo(TypedDict):\n    task_id: str\n    description: str\n    status: str  # Must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n    created_at: float  # Unix timestamp\n    completed_at: Optional[float]  # Unix timestamp, set when completed\n    due_date: Optional[float]\n    priority: str\n    assigned_to: Optional[str]  # user_id\n\nclass UserInfo(TypedDict):\n    _id: str\n    name: str\n    role: str  # Corrected from 'rol'\n\nclass ProjectInfo(TypedDict):\n    project_id: str\n    name: str\n    start_date: float\n    end_date: Optional[float]\n    tasks: List[str]  # List of task_ids\n\nclass TaskTrackingSystem:\n    def __init__(self):\n        \"\"\"\n        A task tracking system to manage tasks, users, and projects.\n        \"\"\"\n        # Tasks: {task_id: TaskInfo}\n        self.tasks: Dict[str, TaskInfo] = {}\n\n        # Users: {user_id: UserInfo}\n        self.users: Dict[str, UserInfo] = {}\n\n        # Projects: {project_id: ProjectInfo}\n        self.projects: Dict[str, ProjectInfo] = {}\n\n        # Constraints reminder:\n        # - A task can only be marked as \"completed\" if its current status is not already \"completed\"\n        # - The completed_at timestamp must be set when a task's status is updated to \"completed\"\n        # - The status field must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n        # - Task IDs must be unique within the system\n\n    def get_task_by_id(self, task_id: str) -> dict:\n        \"\"\"\n        Retrieve full details of a task given its unique task ID.\n\n        Args:\n            task_id (str): The unique identifier of the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": TaskInfo  # Full task information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Task not found\"\n            }\n\n        Constraints:\n            - The task_id must exist in the system.\n            - Task IDs are unique; only one task will match.\n        \"\"\"\n        if not task_id:\n            return { \"success\": False, \"error\": \"Task ID cannot be empty\" }\n\n        task = self.tasks.get(task_id)\n        if task is None:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        return { \"success\": True, \"data\": task }\n\n    def list_all_tasks(self) -> dict:\n        \"\"\"\n        Retrieve all tasks in the system.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of all tasks; empty list if no tasks exist\n            }\n\n        Constraints:\n            - None (read-only operation).\n            - All tasks returned are guaranteed to have valid structure per TaskInfo.\n        \"\"\"\n        try:\n            # Return a list of all task values\n            all_tasks = list(self.tasks.values())\n            return { \"success\": True, \"data\": all_tasks }\n        except Exception as e:\n            # Though unlikely, catch any unexpected error and return safe failure\n            return { \"success\": False, \"error\": f\"Failed to retrieve tasks: {str(e)}\" }\n\n    def list_tasks_by_status(self, status: str) -> dict:\n        \"\"\"\n        Retrieve all tasks filtered by a specific status.\n\n        Args:\n            status (str): The status to filter by. Must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of tasks with the specified status (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Invalid status value\"\n            }\n\n        Constraints:\n            - The status must be one of the allowed values: \"pending\", \"in progress\", \"completed\", \"blocked\".\n        \"\"\"\n        allowed_statuses = [\"pending\", \"in progress\", \"completed\", \"blocked\"]\n    \n        if status not in allowed_statuses:\n            return { \"success\": False, \"error\": \"Invalid status value\" }\n\n        result = [\n            task_info for task_info in self.tasks.values()\n            if task_info[\"status\"] == status\n        ]\n\n        return { \"success\": True, \"data\": result }\n\n    def list_tasks_by_user(self, user_id: str) -> dict:\n        \"\"\"\n        Retrieve all tasks assigned to a specific user.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of tasks assigned to the user (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"User does not exist\"\n            }\n\n        Constraints:\n            - The user_id must correspond to an existing user.\n            - Only tasks where 'assigned_to' matches the user_id are returned.\n        \"\"\"\n        if user_id not in self.users:\n            return {\"success\": False, \"error\": \"User does not exist\"}\n\n        assigned_tasks = [\n            task_info for task_info in self.tasks.values()\n            if task_info[\"assigned_to\"] == user_id\n        ]\n\n        return {\"success\": True, \"data\": assigned_tasks}\n\n    def list_tasks_in_project(self, project_id: str) -> dict:\n        \"\"\"\n        Retrieve all tasks associated with the given project_id.\n\n        Args:\n            project_id (str): The unique identifier of the project.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of task details for tasks in the project; may be empty\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Project not found\"\n            }\n\n        Constraints:\n            - The project_id must exist in the system.\n            - Only tasks that exist in the system are included in the result.\n        \"\"\"\n        project = self.projects.get(project_id)\n        if not project:\n            return {\"success\": False, \"error\": \"Project not found\"}\n\n        task_ids = project[\"tasks\"]\n        tasks_in_project = []\n        for task_id in task_ids:\n            if task_id in self.tasks:\n                tasks_in_project.append(self.tasks[task_id])\n\n        return {\"success\": True, \"data\": tasks_in_project}\n\n    def get_task_status(self, task_id: str) -> dict:\n        \"\"\"\n        Retrieve the current status of a task by its ID, without returning full task details.\n\n        Args:\n            task_id (str): The unique identifier of the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"status\": str  # One of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": \"Task not found\"\n            }\n\n        Constraints:\n            - The task_id must exist in the system.\n        \"\"\"\n        task = self.tasks.get(task_id)\n        if not task:\n            return {\"success\": False, \"error\": \"Task not found\"}\n\n        return {\"success\": True, \"data\": {\"status\": task[\"status\"]}}\n\n    def get_user_by_id(self, user_id: str) -> dict:\n        \"\"\"\n        Retrieve user information by user_id.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": UserInfo  # The user's information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g., \"User not found\"\n            }\n\n        Constraints:\n            - The user_id must exist in the system.\n        \"\"\"\n        if not user_id:\n            return { \"success\": False, \"error\": \"User ID cannot be empty\" }\n\n        user = self.users.get(user_id)\n        if user is None:\n            return { \"success\": False, \"error\": \"User not found\" }\n\n        return { \"success\": True, \"data\": user }\n\n    def get_project_by_id(self, project_id: str) -> dict:\n        \"\"\"\n        Retrieve project details by its project_id.\n\n        Args:\n            project_id (str): The unique identifier of the project.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": ProjectInfo\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Project not found\"\n            }\n\n        Constraints:\n            - The project_id must exist in the system.\n        \"\"\"\n        project = self.projects.get(project_id)\n        if not project:\n            return { \"success\": False, \"error\": \"Project not found\" }\n    \n        return { \"success\": True, \"data\": project }\n\n    def get_incomplete_tasks(self) -> dict:\n        \"\"\"\n        Retrieve all tasks that are not in \"completed\" status.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of tasks where status != \"completed\"\n            }\n\n        Note:\n            - The status field is expected to be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n            - Only tasks with status not equal to \"completed\" are included.\n            - The result may be an empty list if no incomplete tasks exist.\n        \"\"\"\n        incomplete_tasks = [\n            task_info for task_info in self.tasks.values()\n            if task_info[\"status\"] != \"completed\"\n        ]\n        return {\"success\": True, \"data\": incomplete_tasks}\n\n    def is_task_completable(self, task_id: str) -> dict:\n        \"\"\"\n        Check whether a task can be marked as completed (i.e., its status is not already \"completed\").\n\n        Args:\n            task_id (str): The unique identifier of the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"completable\": bool  # True if task exists and is not already completed\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Reason for failure, e.g. \"Task not found\"\n            }\n\n        Constraints:\n            - Only tasks with a status other than \"completed\" are completable.\n            - The task must exist in the system.\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        task = self.tasks[task_id]\n        completable = task[\"status\"] != \"completed\"\n\n        return { \"success\": True, \"data\": { \"completable\": completable } }\n\n\n    def complete_task(self, task_id: str) -> dict:\n        \"\"\"\n        Mark a task as \"completed\", set the completed_at timestamp, and enforce status constraints.\n\n        Args:\n            task_id (str): The unique identifier of the task to complete.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success: confirmation message\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Reason for failure\n            }\n\n        Constraints:\n            - The task must exist.\n            - The task's status must not already be \"completed\".\n            - The completed_at timestamp is set automatically upon completion.\n            - Status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": f\"Task '{task_id}' does not exist\" }\n\n        task = self.tasks[task_id]\n\n        if task[\"status\"] == \"completed\":\n            return { \"success\": False, \"error\": f\"Task '{task_id}' is already completed\" }\n\n        # Valid status transition: not yet completed → completed\n        task[\"status\"] = \"completed\"\n        current_time = time.time()\n        task[\"completed_at\"] = current_time\n\n        return { \"success\": True, \"message\": f\"Task '{task_id}' marked as completed.\" }\n\n\n    def update_task_status(self, task_id: str, new_status: str) -> Dict[str, object]:\n        \"\"\"\n        Change the status of a task to a valid value.\n\n        Args:\n            task_id (str): The unique ID of the task to update.\n            new_status (str): The new status to set. Must be one of:\n                             \"pending\", \"in progress\", \"completed\", \"blocked\".\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # On failure\n            }\n\n        Constraints:\n            - Task must exist.\n            - New status must be one of the allowed values.\n            - A task already marked \"completed\" cannot be completed again.\n            - If status is set to \"completed\", the completed_at timestamp is set to current time.\n        \"\"\"\n        # Check if task exists\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": f\"Task with ID '{task_id}' not found.\" }\n\n        allowed_statuses = [\"pending\", \"in progress\", \"completed\", \"blocked\"]\n        if new_status not in allowed_statuses:\n            return {\n                \"success\": False,\n                \"error\": f\"Invalid status '{new_status}'. Must be one of {allowed_statuses}.\"\n            }\n\n        task = self.tasks[task_id]\n\n        # Prevent re-completing a completed task\n        if new_status == \"completed\":\n            if task[\"status\"] == \"completed\":\n                return {\n                    \"success\": False,\n                    \"error\": \"Task is already completed and cannot be completed again.\"\n                }\n            # Set completed_at timestamp\n            task[\"completed_at\"] = time.time()\n\n        # Update the status\n        task[\"status\"] = new_status\n\n        return { \"success\": True, \"message\": \"Task status updated successfully.\" }\n\n\n    def create_task(\n        self,\n        task_id: str,\n        description: str,\n        status: str,\n        due_date: Optional[float] = None,\n        priority: str = \"medium\",\n        assigned_to: Optional[str] = None,\n    ) -> dict:\n        \"\"\"\n        Add a new task with a unique task_id, description, and initial status.\n\n        Args:\n            task_id (str): Unique identifier for the task.\n            description (str): Description of the task.\n            status (str): Initial status; must be one of \"pending\", \"in progress\", \"completed\", \"blocked\".\n            due_date (Optional[float]): Unix timestamp for task deadline (default: None).\n            priority (str): Priority level (e.g., \"low\", \"medium\", \"high\") (default: \"medium\").\n            assigned_to (Optional[str]): ID of the user to whom the task is assigned (default: None).\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str,  # On success: confirmation; on failure: error key with reason\n            }\n\n        Constraints:\n            - task_id must be unique.\n            - status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n            - If assigned_to is provided, it must refer to an existing user.\n            - created_at is set automatically to current time; completed_at is None by default.\n        \"\"\"\n        # Check if task_id already exists\n        if task_id in self.tasks:\n            return {\"success\": False, \"error\": \"Task ID already exists\"}\n\n        # Validate status\n        valid_statuses = [\"pending\", \"in progress\", \"completed\", \"blocked\"]\n        if status not in valid_statuses:\n            return {\"success\": False, \"error\": f\"Invalid status: {status}. Must be one of {valid_statuses}\"}\n\n        # If assigned_to is provided, check if user exists\n        if assigned_to is not None and assigned_to not in self.users:\n            return {\"success\": False, \"error\": f\"User with ID '{assigned_to}' does not exist\"}\n\n        # Set timestamps\n        created_at = time.time()  # Current Unix timestamp\n        completed_at = None\n        if status == \"completed\":\n            completed_at = created_at  # Automatically set if status is completed\n\n        # Create new task\n        new_task: TaskInfo = {\n            \"task_id\": task_id,\n            \"description\": description,\n            \"status\": status,\n            \"created_at\": created_at,\n            \"completed_at\": completed_at,\n            \"due_date\": due_date,\n            \"priority\": priority,\n            \"assigned_to\": assigned_to,\n        }\n\n        # Add to tasks\n        self.tasks[task_id] = new_task\n\n        return {\"success\": True, \"message\": \"Task created successfully\"}\n\n    def assign_task_to_user(self, task_id: str, user_id: str) -> dict:\n        \"\"\"\n        Assign a task to a user by updating the assigned_to field.\n\n        Args:\n            task_id (str): The unique identifier of the task.\n            user_id (str): The unique identifier of the user to whom the task will be assigned.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success: descriptive message\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # \"Task not found\" or \"User not found\"\n            }\n\n        Constraints:\n            - The task must exist in the system.\n            - The user must exist in the system.\n            - There are no restrictions on reassignment (can reassign from one user to another).\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        if user_id not in self.users:\n            return { \"success\": False, \"error\": \"User not found\" }\n\n        self.tasks[task_id][\"assigned_to\"] = user_id\n\n        return {\n            \"success\": True,\n            \"message\": f\"Task '{task_id}' assigned to user '{user_id}'.\"\n        }\n\n    def update_task_due_date(self, task_id: str, due_date: Optional[float]) -> dict:\n        \"\"\"\n        Modify the due date of an existing task.\n\n        Args:\n            task_id (str): The unique identifier of the task to update.\n            due_date (Optional[float]): The new due date as a Unix timestamp. \n                                       Use None to remove the due date.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task due date updated successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # e.g., \"Task not found\"\n            }\n\n        Constraints:\n            - The task must exist in the system.\n            - No restriction on the value of due_date (can be past, future, or None).\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        self.tasks[task_id][\"due_date\"] = due_date\n        return { \"success\": True, \"message\": \"Task due date updated successfully.\" }\n\n    def update_task_priority(self, task_id: str, new_priority: str) -> dict:\n        \"\"\"\n        Change the priority level of a task.\n\n        Args:\n            task_id (str): The unique identifier of the task to update.\n            new_priority (str): The new priority value to assign to the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task priority updated successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": \"Task not found\"\n            }\n\n        Constraints:\n            - The task must exist in the system.\n            - No restrictions on priority values are enforced (any string is allowed).\n        \"\"\"\n        if task_id not in self.tasks:\n            return {\"success\": False, \"error\": \"Task not found\"}\n\n        self.tasks[task_id][\"priority\"] = new_priority\n        return {\"success\": True, \"message\": \"Task priority updated successfully.\"}\n\n    def add_task_to_project(self, task_id: str, project_id: str) -> dict:\n        \"\"\"\n        Add an existing task to a project by linking its task_id to the project's tasks list.\n\n        Args:\n            task_id (str): The ID of the task to add.\n            project_id (str): The ID of the project to add the task to.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task added to project successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error: task or project not found\n            }\n\n        Constraints:\n            - The task_id must refer to an existing task.\n            - The project_id must refer to an existing project.\n            - Idempotent: adding an already-present task is allowed and treated as success.\n        \"\"\"\n        if project_id not in self.projects:\n            return { \"success\": False, \"error\": f\"Project with ID '{project_id}' does not exist.\" }\n\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": f\"Task with ID '{task_id}' does not exist.\" }\n\n        project = self.projects[project_id]\n\n        if task_id not in project[\"tasks\"]:\n            project[\"tasks\"].append(task_id)\n\n        return { \"success\": True, \"message\": \"Task added to project successfully.\" }\n\n    def remove_task_from_project(self, project_id: str, task_id: str) -> dict:\n        \"\"\"\n        Remove a task from a project's list of associated tasks.\n\n        Args:\n            project_id (str): The ID of the project.\n            task_id (str): The ID of the task to remove.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task removed from project successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error (e.g., project or task not found)\n            }\n\n        Constraints:\n            - The project_id must exist in the system.\n            - The task_id must exist in the system.\n            - If the task is not in the project, the operation is still considered successful.\n        \"\"\"\n        if project_id not in self.projects:\n            return { \"success\": False, \"error\": \"Project not found\" }\n\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        project = self.projects[project_id]\n\n        # Remove task_id from the project's tasks list if present\n        if task_id in project[\"tasks\"]:\n            project[\"tasks\"].remove(task_id)\n\n        return { \"success\": True, \"message\": \"Task removed from project successfully.\" }\n\n\n    def bulk_complete_tasks(self, task_ids: List[str]) -> Dict:\n        \"\"\"\n        Mark multiple tasks as completed in a single operation, with individual validation.\n\n        Args:\n            task_ids (List[str]): List of task IDs to attempt to complete.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": str,\n                \"details\": {\n                    \"succeeded\": List[str],  # List of task_ids successfully completed\n                    \"failed\": List[Dict]     # List of dicts with 'task_id' and 'reason' for failures\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Only if critical issue (e.g., invalid input type)\n            }\n\n        Constraints:\n            - A task can only be marked as \"completed\" if it is not already \"completed\".\n            - The completed_at timestamp is set when a task is completed.\n            - The status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n            - Only existing tasks are processed.\n        \"\"\"\n        if not isinstance(task_ids, list):\n            return { \"success\": False, \"error\": \"task_ids must be a list\" }\n\n        allowed_statuses = [\"pending\", \"in progress\", \"blocked\", \"completed\"]\n\n        current_time = time.time()\n        succeeded = []\n        failed = []\n\n        for task_id in task_ids:\n            if task_id not in self.tasks:\n                failed.append({\n                    \"task_id\": task_id,\n                    \"reason\": \"Task does not exist\"\n                })\n                continue\n\n            task = self.tasks[task_id]\n\n            if task[\"status\"] not in allowed_statuses:\n                failed.append({\n                    \"task_id\": task_id,\n                    \"reason\": f\"Invalid status: {task['status']}\"\n                })\n                continue\n\n            if task[\"status\"] == \"completed\":\n                failed.append({\n                    \"task_id\": task_id,\n                    \"reason\": \"Task is already completed\"\n                })\n                continue\n\n            # Update task status and completion timestamp\n            task[\"status\"] = \"completed\"\n            task[\"completed_at\"] = current_time\n            self.tasks[task_id] = task  # Ensure update is persisted (redundant if mutable, but safe)\n\n            succeeded.append(task_id)\n\n        # Return success=True even if some failed — bulk operations allow partial success\n        return {\n            \"success\": True,\n            \"message\": f\"Bulk completion processed: {len(succeeded)} succeeded, {len(failed)} failed.\",\n            \"details\": {\n                \"succeeded\": succeeded,\n                \"failed\": failed\n            }\n        }\n",
+    "env_class_def": "from typing import Dict, List, TypedDict, Optional\nimport time\nfrom typing import Dict\nfrom typing import List, Dict\n\n\n\nclass TaskInfo(TypedDict):\n    task_id: str\n    description: str\n    status: str  # Must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n    created_at: float  # Unix timestamp\n    completed_at: Optional[float]  # Unix timestamp, set when completed\n    due_date: Optional[float]\n    priority: str\n    assigned_to: Optional[str]  # user_id\n\nclass UserInfo(TypedDict):\n    _id: str\n    name: str\n    role: str  # Corrected from 'rol'\n\nclass ProjectInfo(TypedDict):\n    project_id: str\n    name: str\n    start_date: float\n    end_date: Optional[float]\n    tasks: List[str]  # List of task_ids\n\nclass TaskTrackingSystem:\n    def __init__(self):\n        \"\"\"\n        A task tracking system to manage tasks, users, and projects.\n        \"\"\"\n        # Tasks: {task_id: TaskInfo}\n        self.tasks: Dict[str, TaskInfo] = {}\n\n        # Users: {user_id: UserInfo}\n        self.users: Dict[str, UserInfo] = {}\n\n        # Projects: {project_id: ProjectInfo}\n        self.projects: Dict[str, ProjectInfo] = {}\n\n        # Constraints reminder:\n        # - A task can only be marked as \"completed\" if its current status is not already \"completed\"\n        # - The completed_at timestamp must be set when a task's status is updated to \"completed\"\n        # - The status field must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n        # - Task IDs must be unique within the system\n\n    ",
+    "env_func_details": {
+      "get_task_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve full details of a task given its unique task ID.\n\nArgs:\n    task_id (str): The unique identifier of the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": TaskInfo  # Full task information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Task not found\"\n    }\n\nConstraints:\n    - The task_id must exist in the system.\n    - Task IDs are unique; only one task will match.",
+        "source_code": "    def get_task_by_id(self, task_id: str) -> dict:\n        \"\"\"\n        Retrieve full details of a task given its unique task ID.\n\n        Args:\n            task_id (str): The unique identifier of the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": TaskInfo  # Full task information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Task not found\"\n            }\n\n        Constraints:\n            - The task_id must exist in the system.\n            - Task IDs are unique; only one task will match.\n        \"\"\"\n        if not task_id:\n            return { \"success\": False, \"error\": \"Task ID cannot be empty\" }\n\n        task = self.tasks.get(task_id)\n        if task is None:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        return { \"success\": True, \"data\": task }"
+      },
+      "list_all_tasks": {
+        "signature": {
+          "parameters": [],
+          "return": "dict"
+        },
+        "doc": "Retrieve all tasks in the system.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of all tasks; empty list if no tasks exist\n    }\n\nConstraints:\n    - None (read-only operation).\n    - All tasks returned are guaranteed to have valid structure per TaskInfo.",
+        "source_code": "    def list_all_tasks(self) -> dict:\n        \"\"\"\n        Retrieve all tasks in the system.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of all tasks; empty list if no tasks exist\n            }\n\n        Constraints:\n            - None (read-only operation).\n            - All tasks returned are guaranteed to have valid structure per TaskInfo.\n        \"\"\"\n        try:\n            # Return a list of all task values\n            all_tasks = list(self.tasks.values())\n            return { \"success\": True, \"data\": all_tasks }\n        except Exception as e:\n            # Though unlikely, catch any unexpected error and return safe failure\n            return { \"success\": False, \"error\": f\"Failed to retrieve tasks: {str(e)}\" }"
+      },
+      "list_tasks_by_status": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "status",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve all tasks filtered by a specific status.\n\nArgs:\n    status (str): The status to filter by. Must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of tasks with the specified status (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Invalid status value\"\n    }\n\nConstraints:\n    - The status must be one of the allowed values: \"pending\", \"in progress\", \"completed\", \"blocked\".",
+        "source_code": "    def list_tasks_by_status(self, status: str) -> dict:\n        \"\"\"\n        Retrieve all tasks filtered by a specific status.\n\n        Args:\n            status (str): The status to filter by. Must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of tasks with the specified status (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Invalid status value\"\n            }\n\n        Constraints:\n            - The status must be one of the allowed values: \"pending\", \"in progress\", \"completed\", \"blocked\".\n        \"\"\"\n        allowed_statuses = [\"pending\", \"in progress\", \"completed\", \"blocked\"]\n    \n        if status not in allowed_statuses:\n            return { \"success\": False, \"error\": \"Invalid status value\" }\n\n        result = [\n            task_info for task_info in self.tasks.values()\n            if task_info[\"status\"] == status\n        ]\n\n        return { \"success\": True, \"data\": result }"
+      },
+      "list_tasks_by_user": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve all tasks assigned to a specific user.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of tasks assigned to the user (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"User does not exist\"\n    }\n\nConstraints:\n    - The user_id must correspond to an existing user.\n    - Only tasks where 'assigned_to' matches the user_id are returned.",
+        "source_code": "    def list_tasks_by_user(self, user_id: str) -> dict:\n        \"\"\"\n        Retrieve all tasks assigned to a specific user.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of tasks assigned to the user (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"User does not exist\"\n            }\n\n        Constraints:\n            - The user_id must correspond to an existing user.\n            - Only tasks where 'assigned_to' matches the user_id are returned.\n        \"\"\"\n        if user_id not in self.users:\n            return {\"success\": False, \"error\": \"User does not exist\"}\n\n        assigned_tasks = [\n            task_info for task_info in self.tasks.values()\n            if task_info[\"assigned_to\"] == user_id\n        ]\n\n        return {\"success\": True, \"data\": assigned_tasks}"
+      },
+      "list_tasks_in_project": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "project_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve all tasks associated with the given project_id.\n\nArgs:\n    project_id (str): The unique identifier of the project.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of task details for tasks in the project; may be empty\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Project not found\"\n    }\n\nConstraints:\n    - The project_id must exist in the system.\n    - Only tasks that exist in the system are included in the result.",
+        "source_code": "    def list_tasks_in_project(self, project_id: str) -> dict:\n        \"\"\"\n        Retrieve all tasks associated with the given project_id.\n\n        Args:\n            project_id (str): The unique identifier of the project.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of task details for tasks in the project; may be empty\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Project not found\"\n            }\n\n        Constraints:\n            - The project_id must exist in the system.\n            - Only tasks that exist in the system are included in the result.\n        \"\"\"\n        project = self.projects.get(project_id)\n        if not project:\n            return {\"success\": False, \"error\": \"Project not found\"}\n\n        task_ids = project[\"tasks\"]\n        tasks_in_project = []\n        for task_id in task_ids:\n            if task_id in self.tasks:\n                tasks_in_project.append(self.tasks[task_id])\n\n        return {\"success\": True, \"data\": tasks_in_project}"
+      },
+      "get_task_status": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve the current status of a task by its ID, without returning full task details.\n\nArgs:\n    task_id (str): The unique identifier of the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"status\": str  # One of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": \"Task not found\"\n    }\n\nConstraints:\n    - The task_id must exist in the system.",
+        "source_code": "    def get_task_status(self, task_id: str) -> dict:\n        \"\"\"\n        Retrieve the current status of a task by its ID, without returning full task details.\n\n        Args:\n            task_id (str): The unique identifier of the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"status\": str  # One of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": \"Task not found\"\n            }\n\n        Constraints:\n            - The task_id must exist in the system.\n        \"\"\"\n        task = self.tasks.get(task_id)\n        if not task:\n            return {\"success\": False, \"error\": \"Task not found\"}\n\n        return {\"success\": True, \"data\": {\"status\": task[\"status\"]}}"
+      },
+      "get_user_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve user information by user_id.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": UserInfo  # The user's information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g., \"User not found\"\n    }\n\nConstraints:\n    - The user_id must exist in the system.",
+        "source_code": "    def get_user_by_id(self, user_id: str) -> dict:\n        \"\"\"\n        Retrieve user information by user_id.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": UserInfo  # The user's information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g., \"User not found\"\n            }\n\n        Constraints:\n            - The user_id must exist in the system.\n        \"\"\"\n        if not user_id:\n            return { \"success\": False, \"error\": \"User ID cannot be empty\" }\n\n        user = self.users.get(user_id)\n        if user is None:\n            return { \"success\": False, \"error\": \"User not found\" }\n\n        return { \"success\": True, \"data\": user }"
+      },
+      "get_project_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "project_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve project details by its project_id.\n\nArgs:\n    project_id (str): The unique identifier of the project.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": ProjectInfo\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Project not found\"\n    }\n\nConstraints:\n    - The project_id must exist in the system.",
+        "source_code": "    def get_project_by_id(self, project_id: str) -> dict:\n        \"\"\"\n        Retrieve project details by its project_id.\n\n        Args:\n            project_id (str): The unique identifier of the project.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": ProjectInfo\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Project not found\"\n            }\n\n        Constraints:\n            - The project_id must exist in the system.\n        \"\"\"\n        project = self.projects.get(project_id)\n        if not project:\n            return { \"success\": False, \"error\": \"Project not found\" }\n    \n        return { \"success\": True, \"data\": project }"
+      },
+      "get_incomplete_tasks": {
+        "signature": {
+          "parameters": [],
+          "return": "dict"
+        },
+        "doc": "Retrieve all tasks that are not in \"completed\" status.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of tasks where status != \"completed\"\n    }\n\nNote:\n    - The status field is expected to be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n    - Only tasks with status not equal to \"completed\" are included.\n    - The result may be an empty list if no incomplete tasks exist.",
+        "source_code": "    def get_incomplete_tasks(self) -> dict:\n        \"\"\"\n        Retrieve all tasks that are not in \"completed\" status.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[TaskInfo]  # List of tasks where status != \"completed\"\n            }\n\n        Note:\n            - The status field is expected to be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n            - Only tasks with status not equal to \"completed\" are included.\n            - The result may be an empty list if no incomplete tasks exist.\n        \"\"\"\n        incomplete_tasks = [\n            task_info for task_info in self.tasks.values()\n            if task_info[\"status\"] != \"completed\"\n        ]\n        return {\"success\": True, \"data\": incomplete_tasks}"
+      },
+      "is_task_completable": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Check whether a task can be marked as completed (i.e., its status is not already \"completed\").\n\nArgs:\n    task_id (str): The unique identifier of the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"completable\": bool  # True if task exists and is not already completed\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Reason for failure, e.g. \"Task not found\"\n    }\n\nConstraints:\n    - Only tasks with a status other than \"completed\" are completable.\n    - The task must exist in the system.",
+        "source_code": "    def is_task_completable(self, task_id: str) -> dict:\n        \"\"\"\n        Check whether a task can be marked as completed (i.e., its status is not already \"completed\").\n\n        Args:\n            task_id (str): The unique identifier of the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"completable\": bool  # True if task exists and is not already completed\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Reason for failure, e.g. \"Task not found\"\n            }\n\n        Constraints:\n            - Only tasks with a status other than \"completed\" are completable.\n            - The task must exist in the system.\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        task = self.tasks[task_id]\n        completable = task[\"status\"] != \"completed\"\n\n        return { \"success\": True, \"data\": { \"completable\": completable } }"
+      },
+      "complete_task": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Mark a task as \"completed\", set the completed_at timestamp, and enforce status constraints.\n\nArgs:\n    task_id (str): The unique identifier of the task to complete.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success: confirmation message\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Reason for failure\n    }\n\nConstraints:\n    - The task must exist.\n    - The task's status must not already be \"completed\".\n    - The completed_at timestamp is set automatically upon completion.\n    - Status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".",
+        "source_code": "    def complete_task(self, task_id: str) -> dict:\n        \"\"\"\n        Mark a task as \"completed\", set the completed_at timestamp, and enforce status constraints.\n\n        Args:\n            task_id (str): The unique identifier of the task to complete.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success: confirmation message\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Reason for failure\n            }\n\n        Constraints:\n            - The task must exist.\n            - The task's status must not already be \"completed\".\n            - The completed_at timestamp is set automatically upon completion.\n            - Status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": f\"Task '{task_id}' does not exist\" }\n\n        task = self.tasks[task_id]\n\n        if task[\"status\"] == \"completed\":\n            return { \"success\": False, \"error\": f\"Task '{task_id}' is already completed\" }\n\n        # Valid status transition: not yet completed → completed\n        task[\"status\"] = \"completed\"\n        current_time = time.time()\n        task[\"completed_at\"] = current_time\n\n        return { \"success\": True, \"message\": f\"Task '{task_id}' marked as completed.\" }"
+      },
+      "update_task_status": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "new_status",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "Dict[str, object]"
+        },
+        "doc": "Change the status of a task to a valid value.\n\nArgs:\n    task_id (str): The unique ID of the task to update.\n    new_status (str): The new status to set. Must be one of:\n                     \"pending\", \"in progress\", \"completed\", \"blocked\".\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # On failure\n    }\n\nConstraints:\n    - Task must exist.\n    - New status must be one of the allowed values.\n    - A task already marked \"completed\" cannot be completed again.\n    - If status is set to \"completed\", the completed_at timestamp is set to current time.",
+        "source_code": "    def update_task_status(self, task_id: str, new_status: str) -> Dict[str, object]:\n        \"\"\"\n        Change the status of a task to a valid value.\n\n        Args:\n            task_id (str): The unique ID of the task to update.\n            new_status (str): The new status to set. Must be one of:\n                             \"pending\", \"in progress\", \"completed\", \"blocked\".\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # On failure\n            }\n\n        Constraints:\n            - Task must exist.\n            - New status must be one of the allowed values.\n            - A task already marked \"completed\" cannot be completed again.\n            - If status is set to \"completed\", the completed_at timestamp is set to current time.\n        \"\"\"\n        # Check if task exists\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": f\"Task with ID '{task_id}' not found.\" }\n\n        allowed_statuses = [\"pending\", \"in progress\", \"completed\", \"blocked\"]\n        if new_status not in allowed_statuses:\n            return {\n                \"success\": False,\n                \"error\": f\"Invalid status '{new_status}'. Must be one of {allowed_statuses}.\"\n            }\n\n        task = self.tasks[task_id]\n\n        # Prevent re-completing a completed task\n        if new_status == \"completed\":\n            if task[\"status\"] == \"completed\":\n                return {\n                    \"success\": False,\n                    \"error\": \"Task is already completed and cannot be completed again.\"\n                }\n            # Set completed_at timestamp\n            task[\"completed_at\"] = time.time()\n\n        # Update the status\n        task[\"status\"] = new_status\n\n        return { \"success\": True, \"message\": \"Task status updated successfully.\" }"
+      },
+      "create_task": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "description",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "status",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "due_date",
+              "type": "Optional[float]",
+              "default": "None",
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "priority",
+              "type": "str",
+              "default": "'medium'",
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "assigned_to",
+              "type": "Optional[str]",
+              "default": "None",
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Add a new task with a unique task_id, description, and initial status.\n\nArgs:\n    task_id (str): Unique identifier for the task.\n    description (str): Description of the task.\n    status (str): Initial status; must be one of \"pending\", \"in progress\", \"completed\", \"blocked\".\n    due_date (Optional[float]): Unix timestamp for task deadline (default: None).\n    priority (str): Priority level (e.g., \"low\", \"medium\", \"high\") (default: \"medium\").\n    assigned_to (Optional[str]): ID of the user to whom the task is assigned (default: None).\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str,  # On success: confirmation; on failure: error key with reason\n    }\n\nConstraints:\n    - task_id must be unique.\n    - status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n    - If assigned_to is provided, it must refer to an existing user.\n    - created_at is set automatically to current time; completed_at is None by default.",
+        "source_code": "    def create_task(\n        self,\n        task_id: str,\n        description: str,\n        status: str,\n        due_date: Optional[float] = None,\n        priority: str = \"medium\",\n        assigned_to: Optional[str] = None,\n    ) -> dict:\n        \"\"\"\n        Add a new task with a unique task_id, description, and initial status.\n\n        Args:\n            task_id (str): Unique identifier for the task.\n            description (str): Description of the task.\n            status (str): Initial status; must be one of \"pending\", \"in progress\", \"completed\", \"blocked\".\n            due_date (Optional[float]): Unix timestamp for task deadline (default: None).\n            priority (str): Priority level (e.g., \"low\", \"medium\", \"high\") (default: \"medium\").\n            assigned_to (Optional[str]): ID of the user to whom the task is assigned (default: None).\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str,  # On success: confirmation; on failure: error key with reason\n            }\n\n        Constraints:\n            - task_id must be unique.\n            - status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n            - If assigned_to is provided, it must refer to an existing user.\n            - created_at is set automatically to current time; completed_at is None by default.\n        \"\"\"\n        # Check if task_id already exists\n        if task_id in self.tasks:\n            return {\"success\": False, \"error\": \"Task ID already exists\"}\n\n        # Validate status\n        valid_statuses = [\"pending\", \"in progress\", \"completed\", \"blocked\"]\n        if status not in valid_statuses:\n            return {\"success\": False, \"error\": f\"Invalid status: {status}. Must be one of {valid_statuses}\"}\n\n        # If assigned_to is provided, check if user exists\n        if assigned_to is not None and assigned_to not in self.users:\n            return {\"success\": False, \"error\": f\"User with ID '{assigned_to}' does not exist\"}\n\n        # Set timestamps\n        created_at = time.time()  # Current Unix timestamp\n        completed_at = None\n        if status == \"completed\":\n            completed_at = created_at  # Automatically set if status is completed\n\n        # Create new task\n        new_task: TaskInfo = {\n            \"task_id\": task_id,\n            \"description\": description,\n            \"status\": status,\n            \"created_at\": created_at,\n            \"completed_at\": completed_at,\n            \"due_date\": due_date,\n            \"priority\": priority,\n            \"assigned_to\": assigned_to,\n        }\n\n        # Add to tasks\n        self.tasks[task_id] = new_task\n\n        return {\"success\": True, \"message\": \"Task created successfully\"}"
+      },
+      "assign_task_to_user": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "user_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Assign a task to a user by updating the assigned_to field.\n\nArgs:\n    task_id (str): The unique identifier of the task.\n    user_id (str): The unique identifier of the user to whom the task will be assigned.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success: descriptive message\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # \"Task not found\" or \"User not found\"\n    }\n\nConstraints:\n    - The task must exist in the system.\n    - The user must exist in the system.\n    - There are no restrictions on reassignment (can reassign from one user to another).",
+        "source_code": "    def assign_task_to_user(self, task_id: str, user_id: str) -> dict:\n        \"\"\"\n        Assign a task to a user by updating the assigned_to field.\n\n        Args:\n            task_id (str): The unique identifier of the task.\n            user_id (str): The unique identifier of the user to whom the task will be assigned.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success: descriptive message\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # \"Task not found\" or \"User not found\"\n            }\n\n        Constraints:\n            - The task must exist in the system.\n            - The user must exist in the system.\n            - There are no restrictions on reassignment (can reassign from one user to another).\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        if user_id not in self.users:\n            return { \"success\": False, \"error\": \"User not found\" }\n\n        self.tasks[task_id][\"assigned_to\"] = user_id\n\n        return {\n            \"success\": True,\n            \"message\": f\"Task '{task_id}' assigned to user '{user_id}'.\"\n        }"
+      },
+      "update_task_due_date": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "due_date",
+              "type": "Optional[float]",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Modify the due date of an existing task.\n\nArgs:\n    task_id (str): The unique identifier of the task to update.\n    due_date (Optional[float]): The new due date as a Unix timestamp. \n                               Use None to remove the due date.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task due date updated successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # e.g., \"Task not found\"\n    }\n\nConstraints:\n    - The task must exist in the system.\n    - No restriction on the value of due_date (can be past, future, or None).",
+        "source_code": "    def update_task_due_date(self, task_id: str, due_date: Optional[float]) -> dict:\n        \"\"\"\n        Modify the due date of an existing task.\n\n        Args:\n            task_id (str): The unique identifier of the task to update.\n            due_date (Optional[float]): The new due date as a Unix timestamp. \n                                       Use None to remove the due date.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task due date updated successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # e.g., \"Task not found\"\n            }\n\n        Constraints:\n            - The task must exist in the system.\n            - No restriction on the value of due_date (can be past, future, or None).\n        \"\"\"\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        self.tasks[task_id][\"due_date\"] = due_date\n        return { \"success\": True, \"message\": \"Task due date updated successfully.\" }"
+      },
+      "update_task_priority": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "new_priority",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Change the priority level of a task.\n\nArgs:\n    task_id (str): The unique identifier of the task to update.\n    new_priority (str): The new priority value to assign to the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task priority updated successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": \"Task not found\"\n    }\n\nConstraints:\n    - The task must exist in the system.\n    - No restrictions on priority values are enforced (any string is allowed).",
+        "source_code": "    def update_task_priority(self, task_id: str, new_priority: str) -> dict:\n        \"\"\"\n        Change the priority level of a task.\n\n        Args:\n            task_id (str): The unique identifier of the task to update.\n            new_priority (str): The new priority value to assign to the task.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task priority updated successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": \"Task not found\"\n            }\n\n        Constraints:\n            - The task must exist in the system.\n            - No restrictions on priority values are enforced (any string is allowed).\n        \"\"\"\n        if task_id not in self.tasks:\n            return {\"success\": False, \"error\": \"Task not found\"}\n\n        self.tasks[task_id][\"priority\"] = new_priority\n        return {\"success\": True, \"message\": \"Task priority updated successfully.\"}"
+      },
+      "add_task_to_project": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "project_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Add an existing task to a project by linking its task_id to the project's tasks list.\n\nArgs:\n    task_id (str): The ID of the task to add.\n    project_id (str): The ID of the project to add the task to.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task added to project successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error: task or project not found\n    }\n\nConstraints:\n    - The task_id must refer to an existing task.\n    - The project_id must refer to an existing project.\n    - Idempotent: adding an already-present task is allowed and treated as success.",
+        "source_code": "    def add_task_to_project(self, task_id: str, project_id: str) -> dict:\n        \"\"\"\n        Add an existing task to a project by linking its task_id to the project's tasks list.\n\n        Args:\n            task_id (str): The ID of the task to add.\n            project_id (str): The ID of the project to add the task to.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task added to project successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error: task or project not found\n            }\n\n        Constraints:\n            - The task_id must refer to an existing task.\n            - The project_id must refer to an existing project.\n            - Idempotent: adding an already-present task is allowed and treated as success.\n        \"\"\"\n        if project_id not in self.projects:\n            return { \"success\": False, \"error\": f\"Project with ID '{project_id}' does not exist.\" }\n\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": f\"Task with ID '{task_id}' does not exist.\" }\n\n        project = self.projects[project_id]\n\n        if task_id not in project[\"tasks\"]:\n            project[\"tasks\"].append(task_id)\n\n        return { \"success\": True, \"message\": \"Task added to project successfully.\" }"
+      },
+      "remove_task_from_project": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "project_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "task_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Remove a task from a project's list of associated tasks.\n\nArgs:\n    project_id (str): The ID of the project.\n    task_id (str): The ID of the task to remove.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task removed from project successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error (e.g., project or task not found)\n    }\n\nConstraints:\n    - The project_id must exist in the system.\n    - The task_id must exist in the system.\n    - If the task is not in the project, the operation is still considered successful.",
+        "source_code": "    def remove_task_from_project(self, project_id: str, task_id: str) -> dict:\n        \"\"\"\n        Remove a task from a project's list of associated tasks.\n\n        Args:\n            project_id (str): The ID of the project.\n            task_id (str): The ID of the task to remove.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": \"Task removed from project successfully.\"\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error (e.g., project or task not found)\n            }\n\n        Constraints:\n            - The project_id must exist in the system.\n            - The task_id must exist in the system.\n            - If the task is not in the project, the operation is still considered successful.\n        \"\"\"\n        if project_id not in self.projects:\n            return { \"success\": False, \"error\": \"Project not found\" }\n\n        if task_id not in self.tasks:\n            return { \"success\": False, \"error\": \"Task not found\" }\n\n        project = self.projects[project_id]\n\n        # Remove task_id from the project's tasks list if present\n        if task_id in project[\"tasks\"]:\n            project[\"tasks\"].remove(task_id)\n\n        return { \"success\": True, \"message\": \"Task removed from project successfully.\" }"
+      },
+      "bulk_complete_tasks": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "task_ids",
+              "type": "List[str]",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "Dict"
+        },
+        "doc": "Mark multiple tasks as completed in a single operation, with individual validation.\n\nArgs:\n    task_ids (List[str]): List of task IDs to attempt to complete.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": str,\n        \"details\": {\n            \"succeeded\": List[str],  # List of task_ids successfully completed\n            \"failed\": List[Dict]     # List of dicts with 'task_id' and 'reason' for failures\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Only if critical issue (e.g., invalid input type)\n    }\n\nConstraints:\n    - A task can only be marked as \"completed\" if it is not already \"completed\".\n    - The completed_at timestamp is set when a task is completed.\n    - The status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n    - Only existing tasks are processed.",
+        "source_code": "    def bulk_complete_tasks(self, task_ids: List[str]) -> Dict:\n        \"\"\"\n        Mark multiple tasks as completed in a single operation, with individual validation.\n\n        Args:\n            task_ids (List[str]): List of task IDs to attempt to complete.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": str,\n                \"details\": {\n                    \"succeeded\": List[str],  # List of task_ids successfully completed\n                    \"failed\": List[Dict]     # List of dicts with 'task_id' and 'reason' for failures\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Only if critical issue (e.g., invalid input type)\n            }\n\n        Constraints:\n            - A task can only be marked as \"completed\" if it is not already \"completed\".\n            - The completed_at timestamp is set when a task is completed.\n            - The status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n            - Only existing tasks are processed.\n        \"\"\"\n        if not isinstance(task_ids, list):\n            return { \"success\": False, \"error\": \"task_ids must be a list\" }\n\n        allowed_statuses = [\"pending\", \"in progress\", \"blocked\", \"completed\"]\n\n        current_time = time.time()\n        succeeded = []\n        failed = []\n\n        for task_id in task_ids:\n            if task_id not in self.tasks:\n                failed.append({\n                    \"task_id\": task_id,\n                    \"reason\": \"Task does not exist\"\n                })\n                continue\n\n            task = self.tasks[task_id]\n\n            if task[\"status\"] not in allowed_statuses:\n                failed.append({\n                    \"task_id\": task_id,\n                    \"reason\": f\"Invalid status: {task['status']}\"\n                })\n                continue\n\n            if task[\"status\"] == \"completed\":\n                failed.append({\n                    \"task_id\": task_id,\n                    \"reason\": \"Task is already completed\"\n                })\n                continue\n\n            # Update task status and completion timestamp\n            task[\"status\"] = \"completed\"\n            task[\"completed_at\"] = current_time\n            self.tasks[task_id] = task  # Ensure update is persisted (redundant if mutable, but safe)\n\n            succeeded.append(task_id)\n\n        # Return success=True even if some failed — bulk operations allow partial success\n        return {\n            \"success\": True,\n            \"message\": f\"Bulk completion processed: {len(succeeded)} succeeded, {len(failed)} failed.\",\n            \"details\": {\n                \"succeeded\": succeeded,\n                \"failed\": failed\n            }\n        }"
+      }
+    },
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_task_by_id",
+          "description": "Retrieve full details of a task given its unique task ID.\n\nArgs:\n    task_id (str): The unique identifier of the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": TaskInfo  # Full task information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Task not found\"\n    }\n\nConstraints:\n    - The task_id must exist in the system.\n    - Task IDs are unique; only one task will match.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "list_all_tasks",
+          "description": "Retrieve all tasks in the system.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of all tasks; empty list if no tasks exist\n    }\n\nConstraints:\n    - None (read-only operation).\n    - All tasks returned are guaranteed to have valid structure per TaskInfo.",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "list_tasks_by_status",
+          "description": "Retrieve all tasks filtered by a specific status.\n\nArgs:\n    status (str): The status to filter by. Must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of tasks with the specified status (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Invalid status value\"\n    }\n\nConstraints:\n    - The status must be one of the allowed values: \"pending\", \"in progress\", \"completed\", \"blocked\".",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "list_tasks_by_user",
+          "description": "Retrieve all tasks assigned to a specific user.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of tasks assigned to the user (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"User does not exist\"\n    }\n\nConstraints:\n    - The user_id must correspond to an existing user.\n    - Only tasks where 'assigned_to' matches the user_id are returned.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "user_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "list_tasks_in_project",
+          "description": "Retrieve all tasks associated with the given project_id.\n\nArgs:\n    project_id (str): The unique identifier of the project.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of task details for tasks in the project; may be empty\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Project not found\"\n    }\n\nConstraints:\n    - The project_id must exist in the system.\n    - Only tasks that exist in the system are included in the result.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_task_status",
+          "description": "Retrieve the current status of a task by its ID, without returning full task details.\n\nArgs:\n    task_id (str): The unique identifier of the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"status\": str  # One of: \"pending\", \"in progress\", \"completed\", \"blocked\"\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": \"Task not found\"\n    }\n\nConstraints:\n    - The task_id must exist in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_user_by_id",
+          "description": "Retrieve user information by user_id.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": UserInfo  # The user's information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g., \"User not found\"\n    }\n\nConstraints:\n    - The user_id must exist in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "user_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_project_by_id",
+          "description": "Retrieve project details by its project_id.\n\nArgs:\n    project_id (str): The unique identifier of the project.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": ProjectInfo\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Project not found\"\n    }\n\nConstraints:\n    - The project_id must exist in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_incomplete_tasks",
+          "description": "Retrieve all tasks that are not in \"completed\" status.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[TaskInfo]  # List of tasks where status != \"completed\"\n    }\n\nNote:\n    - The status field is expected to be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n    - Only tasks with status not equal to \"completed\" are included.\n    - The result may be an empty list if no incomplete tasks exist.",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "is_task_completable",
+          "description": "Check whether a task can be marked as completed (i.e., its status is not already \"completed\").\n\nArgs:\n    task_id (str): The unique identifier of the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"completable\": bool  # True if task exists and is not already completed\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Reason for failure, e.g. \"Task not found\"\n    }\n\nConstraints:\n    - Only tasks with a status other than \"completed\" are completable.\n    - The task must exist in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "complete_task",
+          "description": "Mark a task as \"completed\", set the completed_at timestamp, and enforce status constraints.\n\nArgs:\n    task_id (str): The unique identifier of the task to complete.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success: confirmation message\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Reason for failure\n    }\n\nConstraints:\n    - The task must exist.\n    - The task's status must not already be \"completed\".\n    - The completed_at timestamp is set automatically upon completion.\n    - Status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "update_task_status",
+          "description": "Change the status of a task to a valid value.\n\nArgs:\n    task_id (str): The unique ID of the task to update.\n    new_status (str): The new status to set. Must be one of:\n                     \"pending\", \"in progress\", \"completed\", \"blocked\".\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # On failure\n    }\n\nConstraints:\n    - Task must exist.\n    - New status must be one of the allowed values.\n    - A task already marked \"completed\" cannot be completed again.\n    - If status is set to \"completed\", the completed_at timestamp is set to current time.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "new_status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id",
+              "new_status"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "create_task",
+          "description": "Add a new task with a unique task_id, description, and initial status.\n\nArgs:\n    task_id (str): Unique identifier for the task.\n    description (str): Description of the task.\n    status (str): Initial status; must be one of \"pending\", \"in progress\", \"completed\", \"blocked\".\n    due_date (Optional[float]): Unix timestamp for task deadline (default: None).\n    priority (str): Priority level (e.g., \"low\", \"medium\", \"high\") (default: \"medium\").\n    assigned_to (Optional[str]): ID of the user to whom the task is assigned (default: None).\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str,  # On success: confirmation; on failure: error key with reason\n    }\n\nConstraints:\n    - task_id must be unique.\n    - status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n    - If assigned_to is provided, it must refer to an existing user.\n    - created_at is set automatically to current time; completed_at is None by default.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "due_date": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "priority": {
+                "type": "string"
+              },
+              "assigned_to": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "task_id",
+              "description",
+              "status",
+              "priority"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "assign_task_to_user",
+          "description": "Assign a task to a user by updating the assigned_to field.\n\nArgs:\n    task_id (str): The unique identifier of the task.\n    user_id (str): The unique identifier of the user to whom the task will be assigned.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success: descriptive message\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # \"Task not found\" or \"User not found\"\n    }\n\nConstraints:\n    - The task must exist in the system.\n    - The user must exist in the system.\n    - There are no restrictions on reassignment (can reassign from one user to another).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "user_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id",
+              "user_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "update_task_due_date",
+          "description": "Modify the due date of an existing task.\n\nArgs:\n    task_id (str): The unique identifier of the task to update.\n    due_date (Optional[float]): The new due date as a Unix timestamp. \n                               Use None to remove the due date.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task due date updated successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # e.g., \"Task not found\"\n    }\n\nConstraints:\n    - The task must exist in the system.\n    - No restriction on the value of due_date (can be past, future, or None).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "due_date": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "task_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "update_task_priority",
+          "description": "Change the priority level of a task.\n\nArgs:\n    task_id (str): The unique identifier of the task to update.\n    new_priority (str): The new priority value to assign to the task.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task priority updated successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": \"Task not found\"\n    }\n\nConstraints:\n    - The task must exist in the system.\n    - No restrictions on priority values are enforced (any string is allowed).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "new_priority": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id",
+              "new_priority"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "add_task_to_project",
+          "description": "Add an existing task to a project by linking its task_id to the project's tasks list.\n\nArgs:\n    task_id (str): The ID of the task to add.\n    project_id (str): The ID of the project to add the task to.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task added to project successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error: task or project not found\n    }\n\nConstraints:\n    - The task_id must refer to an existing task.\n    - The project_id must refer to an existing project.\n    - Idempotent: adding an already-present task is allowed and treated as success.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "project_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id",
+              "project_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "remove_task_from_project",
+          "description": "Remove a task from a project's list of associated tasks.\n\nArgs:\n    project_id (str): The ID of the project.\n    task_id (str): The ID of the task to remove.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": \"Task removed from project successfully.\"\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error (e.g., project or task not found)\n    }\n\nConstraints:\n    - The project_id must exist in the system.\n    - The task_id must exist in the system.\n    - If the task is not in the project, the operation is still considered successful.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "type": "string"
+              },
+              "task_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_id",
+              "task_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "bulk_complete_tasks",
+          "description": "Mark multiple tasks as completed in a single operation, with individual validation.\n\nArgs:\n    task_ids (List[str]): List of task IDs to attempt to complete.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": str,\n        \"details\": {\n            \"succeeded\": List[str],  # List of task_ids successfully completed\n            \"failed\": List[Dict]     # List of dicts with 'task_id' and 'reason' for failures\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Only if critical issue (e.g., invalid input type)\n    }\n\nConstraints:\n    - A task can only be marked as \"completed\" if it is not already \"completed\".\n    - The completed_at timestamp is set when a task is completed.\n    - The status must be one of: \"pending\", \"in progress\", \"completed\", \"blocked\".\n    - Only existing tasks are processed.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "task_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "task_ids"
+            ]
+          }
+        }
+      }
+    ],
+    "attack_point": [
+      {
+        "attribute": "TaskInfo.description",
+        "write": [
+          "create_task"
+        ],
+        "read": [
+          "get_task_by_id",
+          "list_all_tasks",
+          "list_tasks_by_status",
+          "list_tasks_by_user",
+          "list_tasks_in_project",
+          "get_incomplete_tasks"
+        ]
+      }
+    ]
+  }
+}

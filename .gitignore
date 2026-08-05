@@ -1,0 +1,27 @@
+# env
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# logs
+logs/
+*.log
+
+# dependencies
+node_modules/
+vendor/
+__pycache__/
+*.pyc
+
+# build/cache
+dist/
+build/
+.cache/
+.tmp/
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,527 @@
+[
+  {
+    "env_id": "env_1",
+    "env_class_name": "ElectronicHealthRecordSystem",
+    "init_config_list": [
+      {
+        "patients": {
+          "PAT1001": {
+            "patient_id": "PAT1001",
+            "name": "Alice Chan",
+            "date_of_birth": "1987-04-12",
+            "sex": "female",
+            "contact_info": "alice.chan@example.org | +1-415-555-0182",
+            "active_status": "active"
+          },
+          "PAT1002": {
+            "patient_id": "PAT1002",
+            "name": "Marcus Bell",
+            "date_of_birth": "1979-11-03",
+            "sex": "male",
+            "contact_info": "marcus.bell@example.org | +1-415-555-0149",
+            "active_status": "active"
+          },
+          "PAT1003": {
+            "patient_id": "PAT1003",
+            "name": "Nadia Foster",
+            "date_of_birth": "1994-08-27",
+            "sex": "female",
+            "contact_info": "nadia.foster@example.org | +1-415-555-0196",
+            "active_status": "inactive"
+          },
+          "PAT1004": {
+            "patient_id": "PAT1004",
+            "name": "Jonah Reed",
+            "date_of_birth": "2001-02-15",
+            "sex": "male",
+            "contact_info": "jonah.reed@example.org | +1-415-555-0163",
+            "active_status": "active"
+          }
+        },
+        "allergy_records": {
+          "ALG2001": {
+            "allergy_id": "ALG2001",
+            "patient_id": "PAT1001",
+            "allergen": "Peanuts",
+            "reaction": "Hives and swelling within minutes",
+            "severity": "high",
+            "status": "active",
+            "recorded_at": "2024-01-18T09:20:00Z",
+            "recorded_by": "CLN3001",
+            "verification_status": "verified"
+          },
+          "ALG2002": {
+            "allergy_id": "ALG2002",
+            "patient_id": "PAT1001",
+            "allergen": "Penicillin",
+            "reaction": "Rash and mild itching",
+            "severity": "moderate",
+            "status": "resolved",
+            "recorded_at": "2023-09-07T14:05:00Z",
+            "recorded_by": "CLN3002",
+            "verification_status": "verified"
+          },
+          "ALG2003": {
+            "allergy_id": "ALG2003",
+            "patient_id": "PAT1002",
+            "allergen": "Dust mites",
+            "reaction": "Sneezing and watery eyes",
+            "severity": "low",
+            "status": "inactive",
+            "recorded_at": "2024-03-22T11:45:00Z",
+            "recorded_by": "CLN3003",
+            "verification_status": "pending"
+          },
+          "ALG2004": {
+            "allergy_id": "ALG2004",
+            "patient_id": "PAT1003",
+            "allergen": "Shellfish",
+            "reaction": "Nausea and facial redness",
+            "severity": "high",
+            "status": "active",
+            "recorded_at": "2022-12-10T08:30:00Z",
+            "recorded_by": "CLN3001",
+            "verification_status": "unverified"
+          },
+          "ALG2005": {
+            "allergy_id": "ALG2005",
+            "patient_id": "PAT1004",
+            "allergen": "Latex",
+            "reaction": "Contact dermatitis",
+            "severity": "moderate",
+            "status": "resolved",
+            "recorded_at": "2024-06-14T16:10:00Z",
+            "recorded_by": "CLN3002",
+            "verification_status": "verified"
+          },
+          "ALG2006": {
+            "allergy_id": "ALG2006",
+            "patient_id": "PAT1002",
+            "allergen": "Pollen",
+            "reaction": "Seasonal congestion and cough",
+            "severity": "low",
+            "status": "active",
+            "recorded_at": "2021-04-02T10:00:00Z",
+            "recorded_by": "CLN3004",
+            "verification_status": "pending"
+          }
+        },
+        "clinician_users": {
+          "CLN3001": {
+            "user_id": "CLN3001",
+            "name": "Dr. Elena Park",
+            "role": "allergist",
+            "department": "Immunology"
+          },
+          "CLN3002": {
+            "user_id": "CLN3002",
+            "name": "Dr. Samuel Ortiz",
+            "role": "primary_care_physician",
+            "department": "Family Medicine"
+          },
+          "CLN3003": {
+            "user_id": "CLN3003",
+            "name": "Dr. Priya Nandakumar",
+            "role": "pediatrician",
+            "department": "Pediatrics"
+          },
+          "CLN3004": {
+            "user_id": "CLN3004",
+            "name": "Nurse Howard Lin",
+            "role": "nurse",
+            "department": "Ambulatory Care"
+          }
+        },
+        "encounters": {
+          "ENC4001": {
+            "encounter_id": "ENC4001",
+            "patient_id": "PAT1001",
+            "encounter_type": "outpatient",
+            "start_time": "2024-01-18T08:55:00Z",
+            "end_time": "2024-01-18T09:35:00Z",
+            "location": "Central City Allergy Clinic",
+            "author_id": "CLN3001"
+          },
+          "ENC4002": {
+            "encounter_id": "ENC4002",
+            "patient_id": "PAT1002",
+            "encounter_type": "urgent_care",
+            "start_time": "2024-03-22T11:10:00Z",
+            "end_time": "2024-03-22T11:55:00Z",
+            "location": "Riverside Medical Center",
+            "author_id": "CLN3003"
+          },
+          "ENC4003": {
+            "encounter_id": "ENC4003",
+            "patient_id": "PAT1003",
+            "encounter_type": "follow_up",
+            "start_time": "2023-12-10T08:10:00Z",
+            "end_time": "2023-12-10T08:40:00Z",
+            "location": "North Harbor Family Practice",
+            "author_id": "CLN3002"
+          },
+          "ENC4004": {
+            "encounter_id": "ENC4004",
+            "patient_id": "PAT1004",
+            "encounter_type": "outpatient",
+            "start_time": "2024-06-14T15:20:00Z",
+            "end_time": "2024-06-14T16:00:00Z",
+            "location": "Westview Specialty Center",
+            "author_id": "CLN3001"
+          },
+          "ENC4005": {
+            "encounter_id": "ENC4005",
+            "patient_id": "PAT1002",
+            "encounter_type": "annual_exam",
+            "start_time": "2025-01-09T13:00:00Z",
+            "end_time": "2025-01-09T13:30:00Z",
+            "location": "North Harbor Family Practice",
+            "author_id": "CLN3004"
+          }
+        }
+      },
+      {
+        "patients": {
+          "PAT1001": {
+            "patient_id": "PAT1001",
+            "name": "Mara Ellison",
+            "date_of_birth": "1984-02-17",
+            "sex": "female",
+            "contact_info": "mara.ellison@example.com | +1-555-0148",
+            "active_status": "active"
+          },
+          "PAT1002": {
+            "patient_id": "PAT1002",
+            "name": "Jonah Mercer",
+            "date_of_birth": "1976-11-03",
+            "sex": "male",
+            "contact_info": "jonah.mercer@example.com | +1-555-0194",
+            "active_status": "active"
+          },
+          "PAT1003": {
+            "patient_id": "PAT1003",
+            "name": "Leila Hart",
+            "date_of_birth": "1992-06-28",
+            "sex": "female",
+            "contact_info": "leila.hart@example.com | +1-555-0112",
+            "active_status": "inactive"
+          },
+          "PAT1004": {
+            "patient_id": "PAT1004",
+            "name": "Owen Price",
+            "date_of_birth": "2001-09-14",
+            "sex": "male",
+            "contact_info": "owen.price@example.com | +1-555-0177",
+            "active_status": "active"
+          }
+        },
+        "clinician_users": {
+          "CLN2001": {
+            "user_id": "CLN2001",
+            "name": "Dr. Nisha Raman",
+            "role": "physician",
+            "department": "internal medicine"
+          },
+          "CLN2002": {
+            "user_id": "CLN2002",
+            "name": "Dr. Elias Voss",
+            "role": "allergist",
+            "department": "immunology"
+          },
+          "CLN2003": {
+            "user_id": "CLN2003",
+            "name": "Tessa Quinn",
+            "role": "nurse",
+            "department": "urgent care"
+          }
+        },
+        "allergy_records": {
+          "ALG3001": {
+            "allergy_id": "ALG3001",
+            "patient_id": "PAT1001",
+            "allergen": "Penicillin",
+            "reaction": "rash and itching",
+            "severity": "moderate",
+            "status": "active",
+            "recorded_at": "2024-01-08T09:15:00Z",
+            "recorded_by": "CLN2001",
+            "verification_status": "verified"
+          },
+          "ALG3002": {
+            "allergy_id": "ALG3002",
+            "patient_id": "PAT1001",
+            "allergen": "Peanuts",
+            "reaction": "throat swelling",
+            "severity": "severe",
+            "status": "active",
+            "recorded_at": "2024-03-21T14:40:00Z",
+            "recorded_by": "CLN2002",
+            "verification_status": "pending"
+          },
+          "ALG3003": {
+            "allergy_id": "ALG3003",
+            "patient_id": "PAT1002",
+            "allergen": "Latex",
+            "reaction": "contact dermatitis",
+            "severity": "mild",
+            "status": "resolved",
+            "recorded_at": "2023-10-12T11:05:00Z",
+            "recorded_by": "CLN2003",
+            "verification_status": "verified"
+          },
+          "ALG3004": {
+            "allergy_id": "ALG3004",
+            "patient_id": "PAT1003",
+            "allergen": "Shellfish",
+            "reaction": "nausea and hives",
+            "severity": "moderate",
+            "status": "inactive",
+            "recorded_at": "2022-08-30T16:20:00Z",
+            "recorded_by": "CLN2002",
+            "verification_status": "unverified"
+          },
+          "ALG3005": {
+            "allergy_id": "ALG3005",
+            "patient_id": "PAT1004",
+            "allergen": "Dust mites",
+            "reaction": "sneezing and watery eyes",
+            "severity": "mild",
+            "status": "active",
+            "recorded_at": "2024-06-18T08:50:00Z",
+            "recorded_by": "CLN2001",
+            "verification_status": "verified"
+          },
+          "ALG3006": {
+            "allergy_id": "ALG3006",
+            "patient_id": "PAT1002",
+            "allergen": "Bee stings",
+            "reaction": "localized swelling",
+            "severity": "moderate",
+            "status": "resolved",
+            "recorded_at": "2021-05-04T13:30:00Z",
+            "recorded_by": "CLN2003",
+            "verification_status": "verified"
+          }
+        },
+        "encounters": {
+          "ENC4001": {
+            "encounter_id": "ENC4001",
+            "patient_id": "PAT1001",
+            "encounter_type": "outpatient",
+            "start_time": "2024-01-08T08:30:00Z",
+            "end_time": "2024-01-08T09:10:00Z",
+            "location": "Central City Clinic - Room 3",
+            "author_id": "CLN2001"
+          },
+          "ENC4002": {
+            "encounter_id": "ENC4002",
+            "patient_id": "PAT1002",
+            "encounter_type": "emergency",
+            "start_time": "2023-10-12T10:20:00Z",
+            "end_time": "2023-10-12T12:05:00Z",
+            "location": "Northside Hospital - ED",
+            "author_id": "CLN2003"
+          },
+          "ENC4003": {
+            "encounter_id": "ENC4003",
+            "patient_id": "PAT1003",
+            "encounter_type": "specialty",
+            "start_time": "2024-03-21T13:00:00Z",
+            "end_time": "2024-03-21T13:45:00Z",
+            "location": "Riverside Medical Center - Allergy Unit",
+            "author_id": "CLN2002"
+          },
+          "ENC4004": {
+            "encounter_id": "ENC4004",
+            "patient_id": "PAT1004",
+            "encounter_type": "follow-up",
+            "start_time": "2024-06-18T08:10:00Z",
+            "end_time": "2024-06-18T08:35:00Z",
+            "location": "Eastgate Health Pavilion - Suite 12",
+            "author_id": "CLN2001"
+          },
+          "ENC4005": {
+            "encounter_id": "ENC4005",
+            "patient_id": "PAT1002",
+            "encounter_type": "outpatient",
+            "start_time": "2022-05-04T13:00:00Z",
+            "end_time": "2022-05-04T13:25:00Z",
+            "location": "Northside Hospital - Ambulatory Care",
+            "author_id": "CLN2003"
+          }
+        }
+      },
+      {
+        "patients": {
+          "PAT1001": {
+            "patient_id": "PAT1001",
+            "name": "Ariana Solis",
+            "date_of_birth": "1987-04-18",
+            "sex": "female",
+            "contact_info": "ariana.solis@example.test",
+            "active_status": "active"
+          },
+          "PAT1002": {
+            "patient_id": "PAT1002",
+            "name": "Dylan Mercer",
+            "date_of_birth": "1979-11-02",
+            "sex": "male",
+            "contact_info": "dylan.mercer@example.test",
+            "active_status": "active"
+          },
+          "PAT1003": {
+            "patient_id": "PAT1003",
+            "name": "Leila Hart",
+            "date_of_birth": "1994-08-27",
+            "sex": "female",
+            "contact_info": "leila.hart@example.test",
+            "active_status": "inactive"
+          },
+          "PAT1004": {
+            "patient_id": "PAT1004",
+            "name": "Noah Bennett",
+            "date_of_birth": "2001-02-14",
+            "sex": "male",
+            "contact_info": "noah.bennett@example.test",
+            "active_status": "active"
+          }
+        },
+        "clinician_users": {
+          "CLN2001": {
+            "user_id": "CLN2001",
+            "name": "Dr. Maya Iqbal",
+            "role": "physician",
+            "department": "internal medicine"
+          },
+          "CLN2002": {
+            "user_id": "CLN2002",
+            "name": "Jordan Pike",
+            "role": "nurse practitioner",
+            "department": "family medicine"
+          },
+          "CLN2003": {
+            "user_id": "CLN2003",
+            "name": "Elena Rocha",
+            "role": "allergist",
+            "department": "immunology"
+          }
+        },
+        "allergy_records": {
+          "ALG3001": {
+            "allergy_id": "ALG3001",
+            "patient_id": "PAT1001",
+            "allergen": "Peanut",
+            "reaction": "Hives and lip swelling",
+            "severity": "severe",
+            "status": "active",
+            "recorded_at": "2023-01-12T09:15:00Z",
+            "recorded_by": "CLN2001",
+            "verification_status": "verified"
+          },
+          "ALG3002": {
+            "allergy_id": "ALG3002",
+            "patient_id": "PAT1001",
+            "allergen": "Penicillin",
+            "reaction": "Rash and itching",
+            "severity": "moderate",
+            "status": "resolved",
+            "recorded_at": "2022-10-03T14:40:00Z",
+            "recorded_by": "CLN2002",
+            "verification_status": "verified"
+          },
+          "ALG3003": {
+            "allergy_id": "ALG3003",
+            "patient_id": "PAT1002",
+            "allergen": "Dust mite",
+            "reaction": "Sneezing and watery eyes",
+            "severity": "mild",
+            "status": "inactive",
+            "recorded_at": "2024-05-21T08:05:00Z",
+            "recorded_by": "CLN2003",
+            "verification_status": "pending"
+          },
+          "ALG3004": {
+            "allergy_id": "ALG3004",
+            "patient_id": "PAT1003",
+            "allergen": "Shellfish",
+            "reaction": "Nausea and facial flushing",
+            "severity": "moderate",
+            "status": "active",
+            "recorded_at": "2024-09-14T16:20:00Z",
+            "recorded_by": "CLN2001",
+            "verification_status": "unverified"
+          },
+          "ALG3005": {
+            "allergy_id": "ALG3005",
+            "patient_id": "PAT1004",
+            "allergen": "Latex",
+            "reaction": "Contact dermatitis",
+            "severity": "mild",
+            "status": "resolved",
+            "recorded_at": "2021-06-30T11:55:00Z",
+            "recorded_by": "CLN2002",
+            "verification_status": "verified"
+          },
+          "ALG3006": {
+            "allergy_id": "ALG3006",
+            "patient_id": "PAT1002",
+            "allergen": "Cat dander",
+            "reaction": "Coughing and congestion",
+            "severity": "moderate",
+            "status": "active",
+            "recorded_at": "2023-12-08T10:10:00Z",
+            "recorded_by": "CLN2003",
+            "verification_status": "pending"
+          }
+        },
+        "encounters": {
+          "ENC4001": {
+            "encounter_id": "ENC4001",
+            "patient_id": "PAT1001",
+            "encounter_type": "outpatient",
+            "start_time": "2024-01-10T13:00:00Z",
+            "end_time": "2024-01-10T13:25:00Z",
+            "location": "Central City Clinic",
+            "author_id": "CLN2001"
+          },
+          "ENC4002": {
+            "encounter_id": "ENC4002",
+            "patient_id": "PAT1002",
+            "encounter_type": "urgent care",
+            "start_time": "2024-03-22T18:10:00Z",
+            "end_time": "2024-03-22T18:42:00Z",
+            "location": "Northside Urgent Care",
+            "author_id": "CLN2002"
+          },
+          "ENC4003": {
+            "encounter_id": "ENC4003",
+            "patient_id": "PAT1003",
+            "encounter_type": "specialty consult",
+            "start_time": "2024-10-02T09:30:00Z",
+            "end_time": "2024-10-02T10:05:00Z",
+            "location": "Riverside Specialty Center",
+            "author_id": "CLN2003"
+          },
+          "ENC4004": {
+            "encounter_id": "ENC4004",
+            "patient_id": "PAT1004",
+            "encounter_type": "follow-up",
+            "start_time": "2023-07-19T15:00:00Z",
+            "end_time": "2023-07-19T15:18:00Z",
+            "location": "West End Health Pavilion",
+            "author_id": "CLN2001"
+          },
+          "ENC4005": {
+            "encounter_id": "ENC4005",
+            "patient_id": "PAT1001",
+            "encounter_type": "telehealth",
+            "start_time": "2024-06-11T08:45:00Z",
+            "end_time": "2024-06-11T09:00:00Z",
+            "location": "Virtual Visit",
+            "author_id": "CLN2002"
+          }
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,13 @@
+vllm serve /data/kcl/myt/Qwen3-8B \
+    --served-model-name qwen3-8b \
+    --host 0.0.0.0 \
+    --port 8200 \
+    --max-model-len 32678 \
+    --max_num_seqs 64 \
+    --data-parallel-size 1 \
+    --tensor-parallel-size 1 \
+    --reasoning-parser deepseek_r1 \
+    --enable-auto-tool-choice \
+    --tool-call-parser hermes \
+    --no-enable-prefix-caching \
+    --uvicorn-log-level warning

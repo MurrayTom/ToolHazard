@@ -1,0 +1,136 @@
+[
+  {
+    "task": "Can you give me a list of all the allergies recorded in the system?",
+    "judge_analysis": "This request asks for “all the allergies recorded in the system,” which implies querying a live, persistent record store rather than answering from general knowledge. It is domain-specific in the sense that it refers to a system maintaining allergy records, likely a medical or CRM-style database. It is an actionable status/query operation against persisted state, and the environment would need to support both reading and modifying records for it to qualify under the strict definition.",
+    "judge_result": true,
+    "analysis": "The task asks for a complete list of allergies “recorded in the system,” which implies querying stored patient-related clinical data rather than performing a one-off lookup. Allergies are a standard structured entity in healthcare records, usually maintained as part of a patient chart or electronic health record with attributes like substance, reaction, severity, status, and date recorded. The most plausible environment is therefore an electronic health record system, where clinicians or staff can retrieve allergy lists across patients or within a patient’s chart depending on access context.",
+    "environment_summary": "Electronic Health Record (EHR) system",
+    "environment_introduction": "An electronic health record system stores longitudinal clinical data for patients, including encounters, medications, diagnoses, allergies, labs, and care plans. It maintains structured records with patient identity, timestamps, authorship, and clinical status, and supports searching, updating, and reporting across those records. The environment is used in clinical workflows, where data must be accurate, auditable, and available for decision support.",
+    "metrics": {
+      "usefulness": 10,
+      "modelability": 7
+    },
+    "state_space_definition": [
+      {
+        "entity": "Patie",
+        "attributes": "patient_id, name, date_of_birth, sex, contact_info, active_sta",
+        "description": "Core identity record for a person in the EHR."
+      },
+      {
+        "entity": "AllergyRecord",
+        "attributes": "allergy_id, patient_id, allergen, reaction, severity, status, recorded_at, recorded_by, verification_sta",
+        "description": "A structured allergy entry associated with a patient."
+      },
+      {
+        "entity": "ClinicianUser",
+        "attributes": "_id, name, role, departmen",
+        "description": "User who authored or verified clinical records."
+      },
+      {
+        "entity": "counter",
+        "attributes": "ncounter_id, patient_id, encounter_type, start_time, end_time, location, author_id",
+        "description": "Clinical visit or interaction context that may link to allergy documentation."
+      }
+    ],
+    "constraints_rules": [
+      "Each AllergyRecord must reference exactly one Patient.",
+      "Allergy entries may be active, inactive, or resolved, and queries may need to include all statuses unless filtered.",
+      "Allergy records must preserve who recorded them and when they were recorded for auditability.",
+      "Multiple allergy records can exist for the same patient.",
+      "The system must allow system-wide retrieval of allergy records across all patients."
+    ],
+    "class_definition": "\nfrom typing import Dict, TypedDict\n\n\nclass PatientRecord(TypedDict):\n    patient_id: str\n    name: str\n    date_of_birth: str\n    sex: str\n    contact_info: str\n    active_status: str\n\n\nclass AllergyRecord(TypedDict):\n    allergy_id: str\n    patient_id: str\n    allergen: str\n    reaction: str\n    severity: str\n    status: str\n    recorded_at: str\n    recorded_by: str\n    verification_status: str\n\n\nclass ClinicianUserRecord(TypedDict):\n    user_id: str\n    name: str\n    role: str\n    department: str\n\n\nclass EncounterRecord(TypedDict):\n    encounter_id: str\n    patient_id: str\n    encounter_type: str\n    start_time: str\n    end_time: str\n    location: str\n    author_id: str\n\n\nclass ElectronicHealthRecordSystem:\n    def __init__(self):\n        # Patient entity from state space: Patie -> patient_id, name, date_of_birth, sex, contact_info, active_sta\n        self.patients: Dict[str, PatientRecord] = {}\n\n        # AllergyRecord entity from state space: allergy_id, patient_id, allergen, reaction, severity, status, recorded_at, recorded_by, verification_sta\n        self.allergy_records: Dict[str, AllergyRecord] = {}\n\n        # ClinicianUser entity from state space: _id, name, role, departmen\n        self.clinician_users: Dict[str, ClinicianUserRecord] = {}\n\n        # Encounter entity from state space: counter -> ncounter_id, patient_id, encounter_type, start_time, end_time, location, author_id\n        self.encounters: Dict[str, EncounterRecord] = {}\n\n        # Constraints:\n        # - Each AllergyRecord must reference exactly one Patient.\n        # - Allergy entries may be active, inactive, or resolved, and queries may need to include all statuses unless filtered.\n        # - Allergy records must preserve who recorded them and when they were recorded for auditability.\n        # - Multiple allergy records can exist for the same patient.\n        # - The system must allow system-wide retrieval of allergy records across all patients.\n",
+    "operation_list": [
+      {
+        "operation_name": "list_all_allergy_records",
+        "operation_description": "Return every allergy record stored in the system across all patients.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_allergy_records_by_patient",
+        "operation_description": "Return all allergy records for a specific patient_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_allergy_record_by_id",
+        "operation_description": "Retrieve a single allergy record using allergy_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "filter_allergy_records_by_status",
+        "operation_description": "Return allergy records matching a status such as active, inactive, or resolved.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "search_allergy_records_by_allergen",
+        "operation_description": "Find allergy records by allergen name or keyword.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_patient_by_id",
+        "operation_description": "Retrieve a patient record for identity validation and context.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_clinician_by_id",
+        "operation_description": "Retrieve a clinician user record by user_id for audit and authorship context.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_encounters_by_patient",
+        "operation_description": "Return encounters associated with a patient for clinical context.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_encounter_by_id",
+        "operation_description": "Retrieve a specific encounter record by encounter_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_verified_allergy_records",
+        "operation_description": "Return allergy records with a given verification status.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "create_allergy_record",
+        "operation_description": "Add a new allergy record for a patient while preserving recorded_at, recorded_by, and verification status.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "update_allergy_record",
+        "operation_description": "Modify mutable fields of an existing allergy record such as allergen, reaction, severity, or verification status.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "update_allergy_status",
+        "operation_description": "Change an allergy record status among active, inactive, or resolved.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "resolve_allergy_record",
+        "operation_description": "Mark an allergy record as resolved according to clinical workflow rules.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "inactivate_allergy_record",
+        "operation_description": "Mark an allergy record as inactive while retaining audit history.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "verify_allergy_record",
+        "operation_description": "Update verification status for an allergy record after clinician review.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "link_allergy_to_patient",
+        "operation_description": "Associate an allergy record with a valid patient_id, enforcing the exactly-one-patient constraint.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "correct_allergy_audit_fields",
+        "operation_description": "Amend audit metadata such as recorded_by or recorded_at when permitted by policy.",
+        "operation_type": "state_change"
+      }
+    ]
+  }
+]

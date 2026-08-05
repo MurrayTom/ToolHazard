@@ -1,0 +1,43 @@
+[
+  {
+    "task": "Can you give me a list of all the allergies recorded in the system?",
+    "judge_analysis": "This request asks for “all the allergies recorded in the system,” which implies querying a live, persistent record store rather than answering from general knowledge. It is domain-specific in the sense that it refers to a system maintaining allergy records, likely a medical or CRM-style database. It is an actionable status/query operation against persisted state, and the environment would need to support both reading and modifying records for it to qualify under the strict definition.",
+    "judge_result": true,
+    "analysis": "The task asks for a complete list of allergies “recorded in the system,” which implies querying stored patient-related clinical data rather than performing a one-off lookup. Allergies are a standard structured entity in healthcare records, usually maintained as part of a patient chart or electronic health record with attributes like substance, reaction, severity, status, and date recorded. The most plausible environment is therefore an electronic health record system, where clinicians or staff can retrieve allergy lists across patients or within a patient’s chart depending on access context.",
+    "environment_summary": "Electronic Health Record (EHR) system",
+    "environment_introduction": "An electronic health record system stores longitudinal clinical data for patients, including encounters, medications, diagnoses, allergies, labs, and care plans. It maintains structured records with patient identity, timestamps, authorship, and clinical status, and supports searching, updating, and reporting across those records. The environment is used in clinical workflows, where data must be accurate, auditable, and available for decision support.",
+    "metrics": {
+      "usefulness": 10,
+      "modelability": 7
+    },
+    "state_space_definition": [
+      {
+        "entity": "Patie",
+        "attributes": "patient_id, name, date_of_birth, sex, contact_info, active_sta",
+        "description": "Core identity record for a person in the EHR."
+      },
+      {
+        "entity": "AllergyRecord",
+        "attributes": "allergy_id, patient_id, allergen, reaction, severity, status, recorded_at, recorded_by, verification_sta",
+        "description": "A structured allergy entry associated with a patient."
+      },
+      {
+        "entity": "ClinicianUser",
+        "attributes": "_id, name, role, departmen",
+        "description": "User who authored or verified clinical records."
+      },
+      {
+        "entity": "counter",
+        "attributes": "ncounter_id, patient_id, encounter_type, start_time, end_time, location, author_id",
+        "description": "Clinical visit or interaction context that may link to allergy documentation."
+      }
+    ],
+    "constraints_rules": [
+      "Each AllergyRecord must reference exactly one Patient.",
+      "Allergy entries may be active, inactive, or resolved, and queries may need to include all statuses unless filtered.",
+      "Allergy records must preserve who recorded them and when they were recorded for auditability.",
+      "Multiple allergy records can exist for the same patient.",
+      "The system must allow system-wide retrieval of allergy records across all patients."
+    ]
+  }
+]

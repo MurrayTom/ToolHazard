@@ -1,0 +1,693 @@
+{
+  "env_2_sft": {
+    "env_id": "env_2_sft",
+    "environment_summary": "Reddit social media platform",
+    "environment_introduction": "The Reddit platform is a stateful, content-driven environment where users submit posts and engage through threaded comments. It maintains persistent state including post and comment metadata, upvotes, timestamps, and user information, and supports dynamic retrieval of content based on criteria such as sort order and subreddit context. The platform serves global audiences with localization capabilities, including language-specific content delivery and interface settings.",
+    "state_space_definition": [
+      {
+        "entity": "Pos",
+        "attributes": "post_id, author_id, title, content, subreddit_id, timestamp, upvotes, downvotes, comment_coun",
+        "description": "Represents a user-submitted post, including engagement metrics and metadata necessary for retrieval and sorting."
+      },
+      {
+        "entity": "Comme",
+        "attributes": "comment_id, post_id, parent_comment_id, author_id, content, timestamp, upvotes, downvotes, edited_flag",
+        "description": "Represents a comment on a post, possibly nested in a thread; includes metadata for sorting and display."
+      },
+      {
+        "entity": "User",
+        "attributes": "_id, username, language_preference, account_age, karma",
+        "description": "Represents a Reddit user, with language preference affecting content delivery and interface localization."
+      },
+      {
+        "entity": "Sessio",
+        "attributes": "on_id, user_id, language_setting, active_subreddit, sort_preferenc",
+        "description": "Represents a user session, storing transient preferences such as language and sort order used during interaction."
+      },
+      {
+        "entity": "Subredd",
+        "attributes": "ddit_id, name, language, moderator_list, content_policy",
+        "description": "Represents a community on Reddit, which may have language-specific settings or content."
+      }
+    ],
+    "constraints_rules": [
+      "Comments must be retrievable by sort criteria (e.g., 'new' based on timestamp, 'top' based on upvotes).",
+      "Language settings (e.g., Spanish, English) affect content rendering or interface localization, either at the user or session level.",
+      "Nested comment threads must be preserved via parent-child relationships.",
+      "A post belongs to exactly one subreddit.",
+      "Users can update language preferences, which influence subsequent content delivery."
+    ],
+    "operation_list": [
+      {
+        "operation_name": "get_post_by_id",
+        "operation_description": "Retrieve detailed information about a post using its unique post_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_subreddit_by_id",
+        "operation_description": "Fetch metadata of a subreddit including its language and content policy.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_user_by_id",
+        "operation_description": "Retrieve user profile information such as username and language preference.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_session_by_id",
+        "operation_description": "Retrieve current session settings including language and sort preference.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_comments_by_post",
+        "operation_description": "Retrieve all comments associated with a given post_id.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "list_comments_sorted",
+        "operation_description": "Retrieve comments for a post sorted by a specified criterion ('new', 'top', 'hot', etc.).",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_comment_thread",
+        "operation_description": "Retrieve a nested comment thread starting from a top-level or child comment, preserving hierarchy.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_language_context",
+        "operation_description": "Determine effective language setting from session or user preference for content localization.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "get_active_subreddit_context",
+        "operation_description": "Retrieve the currently active subreddit in the session for contextual filtering.",
+        "operation_type": "query"
+      },
+      {
+        "operation_name": "set_session_language",
+        "operation_description": "Update the language setting of a session to influence content rendering and interface.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "set_session_sort_preference",
+        "operation_description": "Change the default sort order used when retrieving posts or comments in the session.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "update_user_language_preference",
+        "operation_description": "Modify a user’s preferred language, affecting future content delivery.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "edit_comment_content",
+        "operation_description": "Update the text of an existing comment and set the edited_flag to True.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "switch_active_subreddit",
+        "operation_description": "Change the active subreddit in the current session to navigate communities.",
+        "operation_type": "state_change"
+      },
+      {
+        "operation_name": "refresh_session_context",
+        "operation_description": "Reset or update session metadata (e.g., after user switches preferences or location).",
+        "operation_type": "state_change"
+      }
+    ],
+    "env_class_name": "RedditSocialMediaPlatform",
+    "env_class_code": "from typing import Dict, TypedDict\nfrom collections import deque\n\n\n\n\nclass PostInfo(TypedDict):\n    post_id: str\n    author_id: str\n    title: str\n    content: str\n    subreddit_id: str\n    timestamp: float\n    upvotes: int\n    downvotes: int\n    comment_count: int\n\n\nclass CommentInfo(TypedDict):\n    comment_id: str\n    post_id: str\n    parent_comment_id: str  # None if top-level comment\n    author_id: str\n    content: str\n    timestamp: float\n    upvotes: int\n    downvotes: int\n    edited_flag: bool\n\n\nclass UserInfo(TypedDict):\n    _id: str\n    username: str\n    language_preference: str\n    account_age: int  # in days\n    karma: int\n\n\nclass SessionInfo(TypedDict):\n    session_id: str\n    user_id: str\n    language_setting: str\n    active_subreddit: str\n    sort_preference: str  # e.g., 'new', 'top', 'hot'\n\n\nclass SubredditInfo(TypedDict):\n    subreddit_id: str\n    name: str\n    language: str\n    moderator_list: list[str]\n    content_policy: str\n\n\nclass RedditSocialMediaPlatform:\n    def __init__(self):\n        \"\"\"\n        Simulates the stateful environment of the Reddit social media platform,\n        maintaining posts, comments, users, sessions, and subreddits.\n        \"\"\"\n\n        # Posts: {post_id: PostInfo}\n        self.posts: Dict[str, PostInfo] = {}\n\n        # Comments: {comment_id: CommentInfo}\n        self.comments: Dict[str, CommentInfo] = {}\n\n        # Users: {user_id: UserInfo}\n        self.users: Dict[str, UserInfo] = {}\n\n        # Sessions: {session_id: SessionInfo}\n        self.sessions: Dict[str, SessionInfo] = {}\n\n        # Subreddits: {subreddit_id: SubredditInfo}\n        self.subreddits: Dict[str, SubredditInfo] = {}\n\n        # Constraints reminder:\n        # - Comments must be retrievable by sort criteria (e.g., 'new' by timestamp, 'top' by upvotes)\n        # - Language settings (user/session) affect content rendering and interface localization\n        # - Nested comment threads preserved via parent_comment_id\n        # - A post belongs to exactly one subreddit\n        # - Users can update language preferences, influencing future content delivery\n\n    def get_post_by_id(self, post_id: str) -> dict:\n        \"\"\"\n        Retrieve detailed information about a post using its unique post_id.\n\n        Args:\n            post_id (str): The unique identifier of the post.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": PostInfo  # Full post information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Post not found\"\n            }\n\n        Constraints:\n            - The post_id must correspond to an existing post in the system.\n        \"\"\"\n        if not post_id:\n            return {\"success\": False, \"error\": \"Post ID cannot be empty\"}\n\n        post = self.posts.get(post_id)\n        if post is None:\n            return {\"success\": False, \"error\": \"Post not found\"}\n\n        return {\"success\": True, \"data\": post}\n\n    def get_subreddit_by_id(self, subreddit_id: str) -> dict:\n        \"\"\"\n        Fetch metadata of a subreddit by its unique identifier.\n\n        Args:\n            subreddit_id (str): The ID of the subreddit to retrieve.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"data\": SubredditInfo  # If successful\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error\n            }\n\n        Constraints:\n            - The subreddit_id must correspond to an existing subreddit.\n        \"\"\"\n        if not subreddit_id:\n            return {\"success\": False, \"error\": \"Subreddit ID cannot be empty\"}\n\n        subreddit_info = self.subreddits.get(subreddit_id)\n        if subreddit_info is None:\n            return {\"success\": False, \"error\": \"Subreddit not found\"}\n\n        return {\"success\": True, \"data\": subreddit_info}\n\n    def get_user_by_id(self, user_id: str) -> dict:\n        \"\"\"\n        Retrieve the profile information of a user by their user ID.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": UserInfo  # The user's profile information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error, e.g., \"User not found\"\n            }\n\n        Constraints:\n            - The user_id must correspond to an existing user in the system.\n        \"\"\"\n        user = self.users.get(user_id)\n        if not user:\n            return {\"success\": False, \"error\": \"User not found\"}\n    \n        return {\"success\": True, \"data\": user}\n\n    def get_session_by_id(self, session_id: str) -> dict:\n        \"\"\"\n        Retrieve the session information for the given session ID.\n\n        Args:\n            session_id (str): The unique identifier of the session to retrieve.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"data\": SessionInfo   # If successful\n            }\n            or {\n                \"success\": False,\n                \"error\": str           # If session not found\n            }\n\n        Constraints:\n            - The session must exist in the system.\n        \"\"\"\n        session = self.sessions.get(session_id)\n        if session is None:\n            return {\"success\": False, \"error\": \"Session not found\"}\n    \n        return {\"success\": True, \"data\": session}\n\n    def list_comments_by_post(self, post_id: str) -> dict:\n        \"\"\"\n        Retrieve all comments associated with the given post_id.\n\n        Args:\n            post_id (str): The ID of the post to retrieve comments for.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[CommentInfo]  # List of comments linked to the post (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Only if input validation fails (though post_id as str is always valid)\n            }\n\n        Note:\n            - Returns all comments regardless of nesting level (top-level or replies).\n            - Does not require the post to exist; returns empty list if no matching comments.\n            - Sorting is not applied here; use `list_comments_sorted` for ordered results.\n        \"\"\"\n        if not isinstance(post_id, str):\n            return {\"success\": False, \"error\": \"post_id must be a string\"}\n\n        result = [\n            comment for comment in self.comments.values()\n            if comment[\"post_id\"] == post_id\n        ]\n\n        return {\n            \"success\": True,\n            \"data\": result\n        }\n\n    def list_comments_sorted(self, post_id: str, sort_by: str) -> dict:\n        \"\"\"\n        Retrieve all comments for a given post sorted by a specified criterion.\n\n        Args:\n            post_id (str): The ID of the post to retrieve comments for.\n            sort_by (str): Sorting criterion. Supported values: 'new', 'top', 'hot'.\n                           - 'new': sort by timestamp descending (newest first)\n                           - 'top': sort by upvotes descending\n                           - 'hot': currently treated as 'top'; could be enhanced with time-based scoring\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"data\": List[CommentInfo]  # List of CommentInfo dicts sorted by criterion (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error (e.g., post not found, invalid sort criterion)\n            }\n\n        Constraints:\n            - Only comments belonging to the given post are returned.\n            - Sorting must be applied based on the specified valid criterion.\n            - Nested comment relationships are preserved in data but not structured into threads here.\n        \"\"\"\n        # Validate post_id\n        if post_id not in self.posts:\n            return {\"success\": False, \"error\": \"Post not found\"}\n\n        # Supported sort methods\n        if sort_by not in ['new', 'top', 'hot']:\n            return {\"success\": False, \"error\": \"Invalid sort criterion. Supported: 'new', 'top', 'hot'\"}\n\n        # Filter comments by post_id\n        post_comments = [\n            comment for comment in self.comments.values()\n            if comment[\"post_id\"] == post_id\n        ]\n\n        # Sort based on criterion\n        if sort_by == 'new':\n            sorted_comments = sorted(post_comments, key=lambda c: c[\"timestamp\"], reverse=True)\n        elif sort_by == 'top':\n            sorted_comments = sorted(post_comments, key=lambda c: c[\"upvotes\"], reverse=True)\n        elif sort_by == 'hot':\n            # For simplicity, 'hot' uses same logic as 'top'\n            sorted_comments = sorted(post_comments, key=lambda c: c[\"upvotes\"], reverse=True)\n        else:\n            # This block should not be reached due to prior validation\n            sorted_comments = post_comments\n\n        return {\"success\": True, \"data\": sorted_comments}\n\n    def get_comment_thread(self, comment_id: str) -> dict:\n        \"\"\"\n        Retrieve a nested comment thread starting from the specified comment, \n        preserving the hierarchical structure without nested function definitions.\n\n        Args:\n            comment_id (str): The ID of the comment to start the thread from (can be top-level or nested).\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": CommentInfo with \"replies\" field added (nested dicts with children under \"replies\")\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. comment not found\n            }\n\n        Note:\n            The returned structure adds a \"replies\" key (list of nested comment objects) to each comment,\n            recursively representing the tree of responses beneath the given comment.\n            This function contains no nested functions.\n        \"\"\"\n        # Check for existence of the requested comment\n        if comment_id not in self.comments:\n            return {\"success\": False, \"error\": \"Comment not found\"}\n\n        # Build a mapping from parent_comment_id to list of child comments\n        comment_tree: Dict[str, list] = {}\n        for cid, comment in self.comments.items():\n            parent_id = comment[\"parent_comment_id\"]\n            if parent_id not in comment_tree:\n                comment_tree[parent_id] = []\n            comment_tree[parent_id].append(comment)\n\n        # Iterative emulation of recursion for hierarchy construction:\n        # Each item in 'nodes_to_expand' is a tuple:\n        # (current_comment_dict, parent_comment_id, replies_list_to_fill)\n\n        # Create the root node\n        root_comment = self.comments[comment_id].copy()\n        root_comment[\"replies\"] = []\n\n        # Use a stack/queue for iterative tree walk\n        nodes_to_expand = deque()\n        nodes_to_expand.append((root_comment, root_comment[\"comment_id\"], root_comment[\"replies\"]))\n\n        while nodes_to_expand:\n            node_dict, node_comment_id, replies_list = nodes_to_expand.popleft()\n            children = comment_tree.get(node_comment_id, [])\n            for child in children:\n                child_copy = child.copy()\n                child_copy[\"replies\"] = []\n                replies_list.append(child_copy)\n                # Expand this child node recursively\n                nodes_to_expand.append((child_copy, child_copy[\"comment_id\"], child_copy[\"replies\"]))\n\n        return {\"success\": True, \"data\": root_comment}\n\n    def get_language_context(self, session_id: str) -> dict:\n        \"\"\"\n        Determine the effective language setting for content localization by first checking\n        the session's language setting, and falling back to the user's language preference.\n\n        Args:\n            session_id (str): The ID of the session to resolve language context for.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"language\": str,        # The resolved language code (e.g., \"en\", \"es\")\n                    \"source\": str           # Either \"session\" or \"user\", indicating where the language was set\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g., session not found, user not found, no language set\n            }\n\n        Constraints:\n            - The language setting is first taken from the session.\n            - If not set in session, it falls back to the user's language_preference.\n            - If neither is available, the operation fails.\n        \"\"\"\n        session = self.sessions.get(session_id)\n        if not session:\n            return {\"success\": False, \"error\": \"Session not found\"}\n\n        # Check session language setting\n        if session.get(\"language_setting\"):\n            return {\n                \"success\": True,\n                \"data\": {\n                    \"language\": session[\"language_setting\"],\n                    \"source\": \"session\"\n                }\n            }\n\n        # Fall back to user's language preference\n        user_id = session.get(\"user_id\")\n        if not user_id:\n            return {\"success\": False, \"error\": \"Session has no associated user\"}\n\n        user = self.users.get(user_id)\n        if not user:\n            return {\"success\": False, \"error\": \"User associated with session not found\"}\n\n        language_pref = user.get(\"language_preference\")\n        if not language_pref:\n            return {\"success\": False, \"error\": \"User has no language preference set\"}\n\n        return {\n            \"success\": True,\n            \"data\": {\n                \"language\": language_pref,\n                \"source\": \"user\"\n            }\n        }\n\n    def get_active_subreddit_context(self, session_id: str) -> dict:\n        \"\"\"\n        Retrieve the currently active subreddit in the given session for contextual filtering.\n\n        Args:\n            session_id (str): The unique identifier of the user session.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"active_subreddit\": str or None  # The subreddit_id currently active, if any\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. session does not exist\n            }\n\n        Constraints:\n            - The session must exist in the system.\n            - The active_subreddit value may be None or a valid subreddit_id.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session does not exist\"}\n\n        session = self.sessions[session_id]\n        return {\n            \"success\": True,\n            \"data\": {\n                \"active_subreddit\": session[\"active_subreddit\"]\n            }\n        }\n\n    def set_session_language(self, session_id: str, language: str) -> dict:\n        \"\"\"\n        Update the language setting of a session to influence content rendering and interface localization.\n\n        Args:\n            session_id (str): The unique identifier of the session.\n            language (str): The language code (e.g., 'en', 'es') to set for the session.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Present on success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. session not found\n            }\n\n        Constraints:\n            - The session must exist in the system.\n            - The language setting affects content rendering and interface localization.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session not found\"}\n\n        self.sessions[session_id][\"language_setting\"] = language\n        return {\"success\": True, \"message\": \"Session language setting updated\"}\n\n    def set_session_sort_preference(self, session_id: str, sort_preference: str) -> dict:\n        \"\"\"\n        Change the default sort order used when retrieving posts or comments in the session.\n\n        Args:\n            session_id (str): The unique identifier of the session to update.\n            sort_preference (str): The new sort preference (e.g., 'hot', 'top', 'new', 'controversial').\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Present on success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error, e.g. session not found\n            }\n\n        Constraints:\n            - The session must exist in the system.\n            - The sort_preference affects subsequent content retrieval operations.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session not found\"}\n\n        self.sessions[session_id][\"sort_preference\"] = sort_preference\n        return {\"success\": True, \"message\": \"Sort preference updated successfully\"}\n\n    def update_user_language_preference(self, user_id: str, new_language: str) -> dict:\n        \"\"\"\n        Update a user's preferred language, which affects future content delivery and localization.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n            new_language (str): The new language preference to set (e.g., 'en', 'es').\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # On failure\n            }\n\n        Constraints:\n            - The user must exist in the system.\n            - The updated language preference influences future content rendering and interface localization.\n        \"\"\"\n        if user_id not in self.users:\n            return {\"success\": False, \"error\": \"User not found.\"}\n\n        self.users[user_id][\"language_preference\"] = new_language\n        return {\"success\": True, \"message\": \"User language preference updated successfully.\"}\n\n    def edit_comment_content(self, comment_id: str, new_content: str) -> dict:\n        \"\"\"\n        Update the content of an existing comment and mark it as edited.\n\n        Args:\n            comment_id (str): The unique identifier of the comment to edit.\n            new_content (str): The new text content to set for the comment.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Present on success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. comment not found\n            }\n\n        Constraints:\n            - The comment must exist in the system.\n            - After edit, the comment's 'edited_flag' must be set to True.\n        \"\"\"\n        if comment_id not in self.comments:\n            return { \"success\": False, \"error\": \"Comment not found\" }\n\n        comment = self.comments[comment_id]\n        comment[\"content\"] = new_content\n        comment[\"edited_flag\"] = True\n\n        return { \"success\": True, \"message\": \"Comment content updated and marked as edited.\" }\n\n    def switch_active_subreddit(self, session_id: str, new_subreddit_id: str) -> dict:\n        \"\"\"\n        Change the active subreddit in the current session to navigate between communities.\n\n        Args:\n            session_id (str): The ID of the session to update.\n            new_subreddit_id (str): The ID of the subreddit to set as active.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": str  # Confirmation of subreddit switch\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Reason for failure (e.g., session or subreddit not found)\n            }\n\n        Constraints:\n            - The session must exist.\n            - The target subreddit must exist in the platform.\n            - After switching, the session's active_subreddit reflects the new subreddit.\n        \"\"\"\n        if not session_id:\n            return { \"success\": False, \"error\": \"Session ID is required\" }\n\n        if not new_subreddit_id:\n            return { \"success\": False, \"error\": \"New subreddit ID is required\" }\n\n        if session_id not in self.sessions:\n            return { \"success\": False, \"error\": \"Session does not exist\" }\n\n        if new_subreddit_id not in self.subreddits:\n            return { \"success\": False, \"error\": \"Subreddit does not exist\" }\n\n        # Update the active subreddit\n        self.sessions[session_id][\"active_subreddit\"] = new_subreddit_id\n\n        return {\n            \"success\": True,\n            \"message\": f\"Active subreddit switched to {new_subreddit_id}\"\n        }\n\n    def refresh_session_context(self, session_id: str) -> dict:\n        \"\"\"\n        Reset or update session metadata to reflect current user preferences and subreddit settings.\n\n        Args:\n            session_id (str): The unique identifier of the session to refresh.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Describes outcome; included only if success=True\n            } or {\n                \"success\": False,\n                \"error\": str  # Reason for failure\n            }\n\n        Constraints:\n            - The session must exist.\n            - The associated user must exist.\n            - The active_subreddit in the session must exist.\n            - Language and sort preferences are refreshed based on user and subreddit context.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session does not exist\"}\n\n        session = self.sessions[session_id]\n\n        user_id = session[\"user_id\"]\n        if user_id not in self.users:\n            return {\"success\": False, \"error\": \"Associated user does not exist\"}\n\n        user = self.users[user_id]\n        active_subreddit_id = session[\"active_subreddit\"]\n\n        if active_subreddit_id not in self.subreddits:\n            return {\"success\": False, \"error\": \"Active subreddit does not exist\"}\n\n        # Update session context based on current user and subreddit\n        # Refresh language: session language may follow user preference\n        session[\"language_setting\"] = user[\"language_preference\"]\n\n        # No change to sort_preference unless default reset needed — not required here\n        # Ensure active_subreddit is still valid (already checked)\n\n        # Update timestamp not tracked in session, so no timestamp update\n\n        return {\"success\": True, \"message\": \"Session context refreshed successfully.\"}\n",
+    "env_class_def": "from typing import Dict, TypedDict\nfrom collections import deque\n\n\n\n\nclass PostInfo(TypedDict):\n    post_id: str\n    author_id: str\n    title: str\n    content: str\n    subreddit_id: str\n    timestamp: float\n    upvotes: int\n    downvotes: int\n    comment_count: int\n\n\nclass CommentInfo(TypedDict):\n    comment_id: str\n    post_id: str\n    parent_comment_id: str  # None if top-level comment\n    author_id: str\n    content: str\n    timestamp: float\n    upvotes: int\n    downvotes: int\n    edited_flag: bool\n\n\nclass UserInfo(TypedDict):\n    _id: str\n    username: str\n    language_preference: str\n    account_age: int  # in days\n    karma: int\n\n\nclass SessionInfo(TypedDict):\n    session_id: str\n    user_id: str\n    language_setting: str\n    active_subreddit: str\n    sort_preference: str  # e.g., 'new', 'top', 'hot'\n\n\nclass SubredditInfo(TypedDict):\n    subreddit_id: str\n    name: str\n    language: str\n    moderator_list: list[str]\n    content_policy: str\n\n\nclass RedditSocialMediaPlatform:\n    def __init__(self):\n        \"\"\"\n        Simulates the stateful environment of the Reddit social media platform,\n        maintaining posts, comments, users, sessions, and subreddits.\n        \"\"\"\n\n        # Posts: {post_id: PostInfo}\n        self.posts: Dict[str, PostInfo] = {}\n\n        # Comments: {comment_id: CommentInfo}\n        self.comments: Dict[str, CommentInfo] = {}\n\n        # Users: {user_id: UserInfo}\n        self.users: Dict[str, UserInfo] = {}\n\n        # Sessions: {session_id: SessionInfo}\n        self.sessions: Dict[str, SessionInfo] = {}\n\n        # Subreddits: {subreddit_id: SubredditInfo}\n        self.subreddits: Dict[str, SubredditInfo] = {}\n\n        # Constraints reminder:\n        # - Comments must be retrievable by sort criteria (e.g., 'new' by timestamp, 'top' by upvotes)\n        # - Language settings (user/session) affect content rendering and interface localization\n        # - Nested comment threads preserved via parent_comment_id\n        # - A post belongs to exactly one subreddit\n        # - Users can update language preferences, influencing future content delivery\n\n    ",
+    "env_func_details": {
+      "get_post_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "post_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve detailed information about a post using its unique post_id.\n\nArgs:\n    post_id (str): The unique identifier of the post.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": PostInfo  # Full post information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Post not found\"\n    }\n\nConstraints:\n    - The post_id must correspond to an existing post in the system.",
+        "source_code": "    def get_post_by_id(self, post_id: str) -> dict:\n        \"\"\"\n        Retrieve detailed information about a post using its unique post_id.\n\n        Args:\n            post_id (str): The unique identifier of the post.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": PostInfo  # Full post information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. \"Post not found\"\n            }\n\n        Constraints:\n            - The post_id must correspond to an existing post in the system.\n        \"\"\"\n        if not post_id:\n            return {\"success\": False, \"error\": \"Post ID cannot be empty\"}\n\n        post = self.posts.get(post_id)\n        if post is None:\n            return {\"success\": False, \"error\": \"Post not found\"}\n\n        return {\"success\": True, \"data\": post}"
+      },
+      "get_subreddit_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "subreddit_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Fetch metadata of a subreddit by its unique identifier.\n\nArgs:\n    subreddit_id (str): The ID of the subreddit to retrieve.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"data\": SubredditInfo  # If successful\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error\n    }\n\nConstraints:\n    - The subreddit_id must correspond to an existing subreddit.",
+        "source_code": "    def get_subreddit_by_id(self, subreddit_id: str) -> dict:\n        \"\"\"\n        Fetch metadata of a subreddit by its unique identifier.\n\n        Args:\n            subreddit_id (str): The ID of the subreddit to retrieve.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"data\": SubredditInfo  # If successful\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error\n            }\n\n        Constraints:\n            - The subreddit_id must correspond to an existing subreddit.\n        \"\"\"\n        if not subreddit_id:\n            return {\"success\": False, \"error\": \"Subreddit ID cannot be empty\"}\n\n        subreddit_info = self.subreddits.get(subreddit_id)\n        if subreddit_info is None:\n            return {\"success\": False, \"error\": \"Subreddit not found\"}\n\n        return {\"success\": True, \"data\": subreddit_info}"
+      },
+      "get_user_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve the profile information of a user by their user ID.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": UserInfo  # The user's profile information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error, e.g., \"User not found\"\n    }\n\nConstraints:\n    - The user_id must correspond to an existing user in the system.",
+        "source_code": "    def get_user_by_id(self, user_id: str) -> dict:\n        \"\"\"\n        Retrieve the profile information of a user by their user ID.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": UserInfo  # The user's profile information\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error, e.g., \"User not found\"\n            }\n\n        Constraints:\n            - The user_id must correspond to an existing user in the system.\n        \"\"\"\n        user = self.users.get(user_id)\n        if not user:\n            return {\"success\": False, \"error\": \"User not found\"}\n    \n        return {\"success\": True, \"data\": user}"
+      },
+      "get_session_by_id": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve the session information for the given session ID.\n\nArgs:\n    session_id (str): The unique identifier of the session to retrieve.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"data\": SessionInfo   # If successful\n    }\n    or {\n        \"success\": False,\n        \"error\": str           # If session not found\n    }\n\nConstraints:\n    - The session must exist in the system.",
+        "source_code": "    def get_session_by_id(self, session_id: str) -> dict:\n        \"\"\"\n        Retrieve the session information for the given session ID.\n\n        Args:\n            session_id (str): The unique identifier of the session to retrieve.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"data\": SessionInfo   # If successful\n            }\n            or {\n                \"success\": False,\n                \"error\": str           # If session not found\n            }\n\n        Constraints:\n            - The session must exist in the system.\n        \"\"\"\n        session = self.sessions.get(session_id)\n        if session is None:\n            return {\"success\": False, \"error\": \"Session not found\"}\n    \n        return {\"success\": True, \"data\": session}"
+      },
+      "list_comments_by_post": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "post_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve all comments associated with the given post_id.\n\nArgs:\n    post_id (str): The ID of the post to retrieve comments for.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[CommentInfo]  # List of comments linked to the post (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Only if input validation fails (though post_id as str is always valid)\n    }\n\nNote:\n    - Returns all comments regardless of nesting level (top-level or replies).\n    - Does not require the post to exist; returns empty list if no matching comments.\n    - Sorting is not applied here; use `list_comments_sorted` for ordered results.",
+        "source_code": "    def list_comments_by_post(self, post_id: str) -> dict:\n        \"\"\"\n        Retrieve all comments associated with the given post_id.\n\n        Args:\n            post_id (str): The ID of the post to retrieve comments for.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": List[CommentInfo]  # List of comments linked to the post (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Only if input validation fails (though post_id as str is always valid)\n            }\n\n        Note:\n            - Returns all comments regardless of nesting level (top-level or replies).\n            - Does not require the post to exist; returns empty list if no matching comments.\n            - Sorting is not applied here; use `list_comments_sorted` for ordered results.\n        \"\"\"\n        if not isinstance(post_id, str):\n            return {\"success\": False, \"error\": \"post_id must be a string\"}\n\n        result = [\n            comment for comment in self.comments.values()\n            if comment[\"post_id\"] == post_id\n        ]\n\n        return {\n            \"success\": True,\n            \"data\": result\n        }"
+      },
+      "list_comments_sorted": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "post_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "sort_by",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve all comments for a given post sorted by a specified criterion.\n\nArgs:\n    post_id (str): The ID of the post to retrieve comments for.\n    sort_by (str): Sorting criterion. Supported values: 'new', 'top', 'hot'.\n                   - 'new': sort by timestamp descending (newest first)\n                   - 'top': sort by upvotes descending\n                   - 'hot': currently treated as 'top'; could be enhanced with time-based scoring\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"data\": List[CommentInfo]  # List of CommentInfo dicts sorted by criterion (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error (e.g., post not found, invalid sort criterion)\n    }\n\nConstraints:\n    - Only comments belonging to the given post are returned.\n    - Sorting must be applied based on the specified valid criterion.\n    - Nested comment relationships are preserved in data but not structured into threads here.",
+        "source_code": "    def list_comments_sorted(self, post_id: str, sort_by: str) -> dict:\n        \"\"\"\n        Retrieve all comments for a given post sorted by a specified criterion.\n\n        Args:\n            post_id (str): The ID of the post to retrieve comments for.\n            sort_by (str): Sorting criterion. Supported values: 'new', 'top', 'hot'.\n                           - 'new': sort by timestamp descending (newest first)\n                           - 'top': sort by upvotes descending\n                           - 'hot': currently treated as 'top'; could be enhanced with time-based scoring\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"data\": List[CommentInfo]  # List of CommentInfo dicts sorted by criterion (may be empty)\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error (e.g., post not found, invalid sort criterion)\n            }\n\n        Constraints:\n            - Only comments belonging to the given post are returned.\n            - Sorting must be applied based on the specified valid criterion.\n            - Nested comment relationships are preserved in data but not structured into threads here.\n        \"\"\"\n        # Validate post_id\n        if post_id not in self.posts:\n            return {\"success\": False, \"error\": \"Post not found\"}\n\n        # Supported sort methods\n        if sort_by not in ['new', 'top', 'hot']:\n            return {\"success\": False, \"error\": \"Invalid sort criterion. Supported: 'new', 'top', 'hot'\"}\n\n        # Filter comments by post_id\n        post_comments = [\n            comment for comment in self.comments.values()\n            if comment[\"post_id\"] == post_id\n        ]\n\n        # Sort based on criterion\n        if sort_by == 'new':\n            sorted_comments = sorted(post_comments, key=lambda c: c[\"timestamp\"], reverse=True)\n        elif sort_by == 'top':\n            sorted_comments = sorted(post_comments, key=lambda c: c[\"upvotes\"], reverse=True)\n        elif sort_by == 'hot':\n            # For simplicity, 'hot' uses same logic as 'top'\n            sorted_comments = sorted(post_comments, key=lambda c: c[\"upvotes\"], reverse=True)\n        else:\n            # This block should not be reached due to prior validation\n            sorted_comments = post_comments\n\n        return {\"success\": True, \"data\": sorted_comments}"
+      },
+      "get_comment_thread": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "comment_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve a nested comment thread starting from the specified comment, \npreserving the hierarchical structure without nested function definitions.\n\nArgs:\n    comment_id (str): The ID of the comment to start the thread from (can be top-level or nested).\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": CommentInfo with \"replies\" field added (nested dicts with children under \"replies\")\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. comment not found\n    }\n\nNote:\n    The returned structure adds a \"replies\" key (list of nested comment objects) to each comment,\n    recursively representing the tree of responses beneath the given comment.\n    This function contains no nested functions.",
+        "source_code": "    def get_comment_thread(self, comment_id: str) -> dict:\n        \"\"\"\n        Retrieve a nested comment thread starting from the specified comment, \n        preserving the hierarchical structure without nested function definitions.\n\n        Args:\n            comment_id (str): The ID of the comment to start the thread from (can be top-level or nested).\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": CommentInfo with \"replies\" field added (nested dicts with children under \"replies\")\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. comment not found\n            }\n\n        Note:\n            The returned structure adds a \"replies\" key (list of nested comment objects) to each comment,\n            recursively representing the tree of responses beneath the given comment.\n            This function contains no nested functions.\n        \"\"\"\n        # Check for existence of the requested comment\n        if comment_id not in self.comments:\n            return {\"success\": False, \"error\": \"Comment not found\"}\n\n        # Build a mapping from parent_comment_id to list of child comments\n        comment_tree: Dict[str, list] = {}\n        for cid, comment in self.comments.items():\n            parent_id = comment[\"parent_comment_id\"]\n            if parent_id not in comment_tree:\n                comment_tree[parent_id] = []\n            comment_tree[parent_id].append(comment)\n\n        # Iterative emulation of recursion for hierarchy construction:\n        # Each item in 'nodes_to_expand' is a tuple:\n        # (current_comment_dict, parent_comment_id, replies_list_to_fill)\n\n        # Create the root node\n        root_comment = self.comments[comment_id].copy()\n        root_comment[\"replies\"] = []\n\n        # Use a stack/queue for iterative tree walk\n        nodes_to_expand = deque()\n        nodes_to_expand.append((root_comment, root_comment[\"comment_id\"], root_comment[\"replies\"]))\n\n        while nodes_to_expand:\n            node_dict, node_comment_id, replies_list = nodes_to_expand.popleft()\n            children = comment_tree.get(node_comment_id, [])\n            for child in children:\n                child_copy = child.copy()\n                child_copy[\"replies\"] = []\n                replies_list.append(child_copy)\n                # Expand this child node recursively\n                nodes_to_expand.append((child_copy, child_copy[\"comment_id\"], child_copy[\"replies\"]))\n\n        return {\"success\": True, \"data\": root_comment}"
+      },
+      "get_language_context": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Determine the effective language setting for content localization by first checking\nthe session's language setting, and falling back to the user's language preference.\n\nArgs:\n    session_id (str): The ID of the session to resolve language context for.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"language\": str,        # The resolved language code (e.g., \"en\", \"es\")\n            \"source\": str           # Either \"session\" or \"user\", indicating where the language was set\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g., session not found, user not found, no language set\n    }\n\nConstraints:\n    - The language setting is first taken from the session.\n    - If not set in session, it falls back to the user's language_preference.\n    - If neither is available, the operation fails.",
+        "source_code": "    def get_language_context(self, session_id: str) -> dict:\n        \"\"\"\n        Determine the effective language setting for content localization by first checking\n        the session's language setting, and falling back to the user's language preference.\n\n        Args:\n            session_id (str): The ID of the session to resolve language context for.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"language\": str,        # The resolved language code (e.g., \"en\", \"es\")\n                    \"source\": str           # Either \"session\" or \"user\", indicating where the language was set\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g., session not found, user not found, no language set\n            }\n\n        Constraints:\n            - The language setting is first taken from the session.\n            - If not set in session, it falls back to the user's language_preference.\n            - If neither is available, the operation fails.\n        \"\"\"\n        session = self.sessions.get(session_id)\n        if not session:\n            return {\"success\": False, \"error\": \"Session not found\"}\n\n        # Check session language setting\n        if session.get(\"language_setting\"):\n            return {\n                \"success\": True,\n                \"data\": {\n                    \"language\": session[\"language_setting\"],\n                    \"source\": \"session\"\n                }\n            }\n\n        # Fall back to user's language preference\n        user_id = session.get(\"user_id\")\n        if not user_id:\n            return {\"success\": False, \"error\": \"Session has no associated user\"}\n\n        user = self.users.get(user_id)\n        if not user:\n            return {\"success\": False, \"error\": \"User associated with session not found\"}\n\n        language_pref = user.get(\"language_preference\")\n        if not language_pref:\n            return {\"success\": False, \"error\": \"User has no language preference set\"}\n\n        return {\n            \"success\": True,\n            \"data\": {\n                \"language\": language_pref,\n                \"source\": \"user\"\n            }\n        }"
+      },
+      "get_active_subreddit_context": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Retrieve the currently active subreddit in the given session for contextual filtering.\n\nArgs:\n    session_id (str): The unique identifier of the user session.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"active_subreddit\": str or None  # The subreddit_id currently active, if any\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. session does not exist\n    }\n\nConstraints:\n    - The session must exist in the system.\n    - The active_subreddit value may be None or a valid subreddit_id.",
+        "source_code": "    def get_active_subreddit_context(self, session_id: str) -> dict:\n        \"\"\"\n        Retrieve the currently active subreddit in the given session for contextual filtering.\n\n        Args:\n            session_id (str): The unique identifier of the user session.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"data\": {\n                    \"active_subreddit\": str or None  # The subreddit_id currently active, if any\n                }\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. session does not exist\n            }\n\n        Constraints:\n            - The session must exist in the system.\n            - The active_subreddit value may be None or a valid subreddit_id.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session does not exist\"}\n\n        session = self.sessions[session_id]\n        return {\n            \"success\": True,\n            \"data\": {\n                \"active_subreddit\": session[\"active_subreddit\"]\n            }\n        }"
+      },
+      "set_session_language": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "language",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Update the language setting of a session to influence content rendering and interface localization.\n\nArgs:\n    session_id (str): The unique identifier of the session.\n    language (str): The language code (e.g., 'en', 'es') to set for the session.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Present on success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. session not found\n    }\n\nConstraints:\n    - The session must exist in the system.\n    - The language setting affects content rendering and interface localization.",
+        "source_code": "    def set_session_language(self, session_id: str, language: str) -> dict:\n        \"\"\"\n        Update the language setting of a session to influence content rendering and interface localization.\n\n        Args:\n            session_id (str): The unique identifier of the session.\n            language (str): The language code (e.g., 'en', 'es') to set for the session.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Present on success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. session not found\n            }\n\n        Constraints:\n            - The session must exist in the system.\n            - The language setting affects content rendering and interface localization.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session not found\"}\n\n        self.sessions[session_id][\"language_setting\"] = language\n        return {\"success\": True, \"message\": \"Session language setting updated\"}"
+      },
+      "set_session_sort_preference": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "sort_preference",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Change the default sort order used when retrieving posts or comments in the session.\n\nArgs:\n    session_id (str): The unique identifier of the session to update.\n    sort_preference (str): The new sort preference (e.g., 'hot', 'top', 'new', 'controversial').\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Present on success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error, e.g. session not found\n    }\n\nConstraints:\n    - The session must exist in the system.\n    - The sort_preference affects subsequent content retrieval operations.",
+        "source_code": "    def set_session_sort_preference(self, session_id: str, sort_preference: str) -> dict:\n        \"\"\"\n        Change the default sort order used when retrieving posts or comments in the session.\n\n        Args:\n            session_id (str): The unique identifier of the session to update.\n            sort_preference (str): The new sort preference (e.g., 'hot', 'top', 'new', 'controversial').\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Present on success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of error, e.g. session not found\n            }\n\n        Constraints:\n            - The session must exist in the system.\n            - The sort_preference affects subsequent content retrieval operations.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session not found\"}\n\n        self.sessions[session_id][\"sort_preference\"] = sort_preference\n        return {\"success\": True, \"message\": \"Sort preference updated successfully\"}"
+      },
+      "update_user_language_preference": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "new_language",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Update a user's preferred language, which affects future content delivery and localization.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n    new_language (str): The new language preference to set (e.g., 'en', 'es').\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # On failure\n    }\n\nConstraints:\n    - The user must exist in the system.\n    - The updated language preference influences future content rendering and interface localization.",
+        "source_code": "    def update_user_language_preference(self, user_id: str, new_language: str) -> dict:\n        \"\"\"\n        Update a user's preferred language, which affects future content delivery and localization.\n\n        Args:\n            user_id (str): The unique identifier of the user.\n            new_language (str): The new language preference to set (e.g., 'en', 'es').\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # On success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # On failure\n            }\n\n        Constraints:\n            - The user must exist in the system.\n            - The updated language preference influences future content rendering and interface localization.\n        \"\"\"\n        if user_id not in self.users:\n            return {\"success\": False, \"error\": \"User not found.\"}\n\n        self.users[user_id][\"language_preference\"] = new_language\n        return {\"success\": True, \"message\": \"User language preference updated successfully.\"}"
+      },
+      "edit_comment_content": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "comment_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "new_content",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Update the content of an existing comment and mark it as edited.\n\nArgs:\n    comment_id (str): The unique identifier of the comment to edit.\n    new_content (str): The new text content to set for the comment.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Present on success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. comment not found\n    }\n\nConstraints:\n    - The comment must exist in the system.\n    - After edit, the comment's 'edited_flag' must be set to True.",
+        "source_code": "    def edit_comment_content(self, comment_id: str, new_content: str) -> dict:\n        \"\"\"\n        Update the content of an existing comment and mark it as edited.\n\n        Args:\n            comment_id (str): The unique identifier of the comment to edit.\n            new_content (str): The new text content to set for the comment.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Present on success\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Description of the error, e.g. comment not found\n            }\n\n        Constraints:\n            - The comment must exist in the system.\n            - After edit, the comment's 'edited_flag' must be set to True.\n        \"\"\"\n        if comment_id not in self.comments:\n            return { \"success\": False, \"error\": \"Comment not found\" }\n\n        comment = self.comments[comment_id]\n        comment[\"content\"] = new_content\n        comment[\"edited_flag\"] = True\n\n        return { \"success\": True, \"message\": \"Comment content updated and marked as edited.\" }"
+      },
+      "switch_active_subreddit": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            },
+            {
+              "name": "new_subreddit_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Change the active subreddit in the current session to navigate between communities.\n\nArgs:\n    session_id (str): The ID of the session to update.\n    new_subreddit_id (str): The ID of the subreddit to set as active.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": str  # Confirmation of subreddit switch\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Reason for failure (e.g., session or subreddit not found)\n    }\n\nConstraints:\n    - The session must exist.\n    - The target subreddit must exist in the platform.\n    - After switching, the session's active_subreddit reflects the new subreddit.",
+        "source_code": "    def switch_active_subreddit(self, session_id: str, new_subreddit_id: str) -> dict:\n        \"\"\"\n        Change the active subreddit in the current session to navigate between communities.\n\n        Args:\n            session_id (str): The ID of the session to update.\n            new_subreddit_id (str): The ID of the subreddit to set as active.\n\n        Returns:\n            dict: {\n                \"success\": True,\n                \"message\": str  # Confirmation of subreddit switch\n            }\n            or\n            {\n                \"success\": False,\n                \"error\": str  # Reason for failure (e.g., session or subreddit not found)\n            }\n\n        Constraints:\n            - The session must exist.\n            - The target subreddit must exist in the platform.\n            - After switching, the session's active_subreddit reflects the new subreddit.\n        \"\"\"\n        if not session_id:\n            return { \"success\": False, \"error\": \"Session ID is required\" }\n\n        if not new_subreddit_id:\n            return { \"success\": False, \"error\": \"New subreddit ID is required\" }\n\n        if session_id not in self.sessions:\n            return { \"success\": False, \"error\": \"Session does not exist\" }\n\n        if new_subreddit_id not in self.subreddits:\n            return { \"success\": False, \"error\": \"Subreddit does not exist\" }\n\n        # Update the active subreddit\n        self.sessions[session_id][\"active_subreddit\"] = new_subreddit_id\n\n        return {\n            \"success\": True,\n            \"message\": f\"Active subreddit switched to {new_subreddit_id}\"\n        }"
+      },
+      "refresh_session_context": {
+        "signature": {
+          "parameters": [
+            {
+              "name": "session_id",
+              "type": "str",
+              "default": null,
+              "kind": "positional-or-keyword"
+            }
+          ],
+          "return": "dict"
+        },
+        "doc": "Reset or update session metadata to reflect current user preferences and subreddit settings.\n\nArgs:\n    session_id (str): The unique identifier of the session to refresh.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Describes outcome; included only if success=True\n    } or {\n        \"success\": False,\n        \"error\": str  # Reason for failure\n    }\n\nConstraints:\n    - The session must exist.\n    - The associated user must exist.\n    - The active_subreddit in the session must exist.\n    - Language and sort preferences are refreshed based on user and subreddit context.",
+        "source_code": "    def refresh_session_context(self, session_id: str) -> dict:\n        \"\"\"\n        Reset or update session metadata to reflect current user preferences and subreddit settings.\n\n        Args:\n            session_id (str): The unique identifier of the session to refresh.\n\n        Returns:\n            dict: {\n                \"success\": bool,\n                \"message\": str  # Describes outcome; included only if success=True\n            } or {\n                \"success\": False,\n                \"error\": str  # Reason for failure\n            }\n\n        Constraints:\n            - The session must exist.\n            - The associated user must exist.\n            - The active_subreddit in the session must exist.\n            - Language and sort preferences are refreshed based on user and subreddit context.\n        \"\"\"\n        if session_id not in self.sessions:\n            return {\"success\": False, \"error\": \"Session does not exist\"}\n\n        session = self.sessions[session_id]\n\n        user_id = session[\"user_id\"]\n        if user_id not in self.users:\n            return {\"success\": False, \"error\": \"Associated user does not exist\"}\n\n        user = self.users[user_id]\n        active_subreddit_id = session[\"active_subreddit\"]\n\n        if active_subreddit_id not in self.subreddits:\n            return {\"success\": False, \"error\": \"Active subreddit does not exist\"}\n\n        # Update session context based on current user and subreddit\n        # Refresh language: session language may follow user preference\n        session[\"language_setting\"] = user[\"language_preference\"]\n\n        # No change to sort_preference unless default reset needed — not required here\n        # Ensure active_subreddit is still valid (already checked)\n\n        # Update timestamp not tracked in session, so no timestamp update\n\n        return {\"success\": True, \"message\": \"Session context refreshed successfully.\"}"
+      }
+    },
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_post_by_id",
+          "description": "Retrieve detailed information about a post using its unique post_id.\n\nArgs:\n    post_id (str): The unique identifier of the post.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": PostInfo  # Full post information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. \"Post not found\"\n    }\n\nConstraints:\n    - The post_id must correspond to an existing post in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "post_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "post_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_subreddit_by_id",
+          "description": "Fetch metadata of a subreddit by its unique identifier.\n\nArgs:\n    subreddit_id (str): The ID of the subreddit to retrieve.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"data\": SubredditInfo  # If successful\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error\n    }\n\nConstraints:\n    - The subreddit_id must correspond to an existing subreddit.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "subreddit_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "subreddit_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_user_by_id",
+          "description": "Retrieve the profile information of a user by their user ID.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": UserInfo  # The user's profile information\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error, e.g., \"User not found\"\n    }\n\nConstraints:\n    - The user_id must correspond to an existing user in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "user_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_session_by_id",
+          "description": "Retrieve the session information for the given session ID.\n\nArgs:\n    session_id (str): The unique identifier of the session to retrieve.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"data\": SessionInfo   # If successful\n    }\n    or {\n        \"success\": False,\n        \"error\": str           # If session not found\n    }\n\nConstraints:\n    - The session must exist in the system.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "list_comments_by_post",
+          "description": "Retrieve all comments associated with the given post_id.\n\nArgs:\n    post_id (str): The ID of the post to retrieve comments for.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": List[CommentInfo]  # List of comments linked to the post (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Only if input validation fails (though post_id as str is always valid)\n    }\n\nNote:\n    - Returns all comments regardless of nesting level (top-level or replies).\n    - Does not require the post to exist; returns empty list if no matching comments.\n    - Sorting is not applied here; use `list_comments_sorted` for ordered results.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "post_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "post_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "list_comments_sorted",
+          "description": "Retrieve all comments for a given post sorted by a specified criterion.\n\nArgs:\n    post_id (str): The ID of the post to retrieve comments for.\n    sort_by (str): Sorting criterion. Supported values: 'new', 'top', 'hot'.\n                   - 'new': sort by timestamp descending (newest first)\n                   - 'top': sort by upvotes descending\n                   - 'hot': currently treated as 'top'; could be enhanced with time-based scoring\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"data\": List[CommentInfo]  # List of CommentInfo dicts sorted by criterion (may be empty)\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error (e.g., post not found, invalid sort criterion)\n    }\n\nConstraints:\n    - Only comments belonging to the given post are returned.\n    - Sorting must be applied based on the specified valid criterion.\n    - Nested comment relationships are preserved in data but not structured into threads here.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "post_id": {
+                "type": "string"
+              },
+              "sort_by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "post_id",
+              "sort_by"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_comment_thread",
+          "description": "Retrieve a nested comment thread starting from the specified comment, \npreserving the hierarchical structure without nested function definitions.\n\nArgs:\n    comment_id (str): The ID of the comment to start the thread from (can be top-level or nested).\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": CommentInfo with \"replies\" field added (nested dicts with children under \"replies\")\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. comment not found\n    }\n\nNote:\n    The returned structure adds a \"replies\" key (list of nested comment objects) to each comment,\n    recursively representing the tree of responses beneath the given comment.\n    This function contains no nested functions.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "comment_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "comment_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_language_context",
+          "description": "Determine the effective language setting for content localization by first checking\nthe session's language setting, and falling back to the user's language preference.\n\nArgs:\n    session_id (str): The ID of the session to resolve language context for.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"language\": str,        # The resolved language code (e.g., \"en\", \"es\")\n            \"source\": str           # Either \"session\" or \"user\", indicating where the language was set\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g., session not found, user not found, no language set\n    }\n\nConstraints:\n    - The language setting is first taken from the session.\n    - If not set in session, it falls back to the user's language_preference.\n    - If neither is available, the operation fails.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "get_active_subreddit_context",
+          "description": "Retrieve the currently active subreddit in the given session for contextual filtering.\n\nArgs:\n    session_id (str): The unique identifier of the user session.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"data\": {\n            \"active_subreddit\": str or None  # The subreddit_id currently active, if any\n        }\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. session does not exist\n    }\n\nConstraints:\n    - The session must exist in the system.\n    - The active_subreddit value may be None or a valid subreddit_id.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "set_session_language",
+          "description": "Update the language setting of a session to influence content rendering and interface localization.\n\nArgs:\n    session_id (str): The unique identifier of the session.\n    language (str): The language code (e.g., 'en', 'es') to set for the session.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Present on success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. session not found\n    }\n\nConstraints:\n    - The session must exist in the system.\n    - The language setting affects content rendering and interface localization.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              },
+              "language": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "language"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "set_session_sort_preference",
+          "description": "Change the default sort order used when retrieving posts or comments in the session.\n\nArgs:\n    session_id (str): The unique identifier of the session to update.\n    sort_preference (str): The new sort preference (e.g., 'hot', 'top', 'new', 'controversial').\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Present on success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of error, e.g. session not found\n    }\n\nConstraints:\n    - The session must exist in the system.\n    - The sort_preference affects subsequent content retrieval operations.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              },
+              "sort_preference": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "sort_preference"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "update_user_language_preference",
+          "description": "Update a user's preferred language, which affects future content delivery and localization.\n\nArgs:\n    user_id (str): The unique identifier of the user.\n    new_language (str): The new language preference to set (e.g., 'en', 'es').\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # On success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # On failure\n    }\n\nConstraints:\n    - The user must exist in the system.\n    - The updated language preference influences future content rendering and interface localization.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string"
+              },
+              "new_language": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "user_id",
+              "new_language"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "edit_comment_content",
+          "description": "Update the content of an existing comment and mark it as edited.\n\nArgs:\n    comment_id (str): The unique identifier of the comment to edit.\n    new_content (str): The new text content to set for the comment.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Present on success\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Description of the error, e.g. comment not found\n    }\n\nConstraints:\n    - The comment must exist in the system.\n    - After edit, the comment's 'edited_flag' must be set to True.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "comment_id": {
+                "type": "string"
+              },
+              "new_content": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "comment_id",
+              "new_content"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "switch_active_subreddit",
+          "description": "Change the active subreddit in the current session to navigate between communities.\n\nArgs:\n    session_id (str): The ID of the session to update.\n    new_subreddit_id (str): The ID of the subreddit to set as active.\n\nReturns:\n    dict: {\n        \"success\": True,\n        \"message\": str  # Confirmation of subreddit switch\n    }\n    or\n    {\n        \"success\": False,\n        \"error\": str  # Reason for failure (e.g., session or subreddit not found)\n    }\n\nConstraints:\n    - The session must exist.\n    - The target subreddit must exist in the platform.\n    - After switching, the session's active_subreddit reflects the new subreddit.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              },
+              "new_subreddit_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "new_subreddit_id"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "refresh_session_context",
+          "description": "Reset or update session metadata to reflect current user preferences and subreddit settings.\n\nArgs:\n    session_id (str): The unique identifier of the session to refresh.\n\nReturns:\n    dict: {\n        \"success\": bool,\n        \"message\": str  # Describes outcome; included only if success=True\n    } or {\n        \"success\": False,\n        \"error\": str  # Reason for failure\n    }\n\nConstraints:\n    - The session must exist.\n    - The associated user must exist.\n    - The active_subreddit in the session must exist.\n    - Language and sort preferences are refreshed based on user and subreddit context.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id"
+            ]
+          }
+        }
+      }
+    ],
+    "attack_point": [
+      {
+        "attribute": "CommentInfo.content",
+        "write": [
+          "edit_comment_content"
+        ],
+        "read": [
+          "list_comments_by_post",
+          "list_comments_sorted",
+          "get_comment_thread"
+        ]
+      }
+    ]
+  }
+}
