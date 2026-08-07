@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ToolHazard-Logo.png" width="180" alt="ToolHazard project avatar">
+</p>
+
 # ToolHazard: Scaling Adversarial Environments for Security Evaluation and Alignment of LLM-based Agents
 
 <div align="center">
