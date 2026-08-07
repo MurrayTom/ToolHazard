@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/ToolHazard-Logo.png" width="180" alt="ToolHazard project avatar">
+  <img src="assets/ToolHazard-logo.png" width="180" alt="ToolHazard project avatar">
 </p>
 
 # ToolHazard: Scaling Adversarial Environments for Security Evaluation and Alignment of LLM-based Agents
