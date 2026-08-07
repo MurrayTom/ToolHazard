@@ -2,10 +2,24 @@
   <img src="assets/ToolHazard-logo.png" width="180" alt="ToolHazard project avatar">
 </p>
 
-# ToolHazard: Scaling Adversarial Environments for Security Evaluation and Alignment of LLM-based Agents
+<h1 align="center"> ToolHazard: Scaling Adversarial Environments for Security Evaluation and Alignment of LLM-based Agents</a></h1>
 
 <div align="center">
-  <img src="assets/toolhazard-cartoon.png" width="760" alt="ToolHazard protects a tool-using agent from an environment-side prompt injection">
+  <a href="">
+    <img src="https://img.shields.io/badge/Paper-arXiv-b5212f.svg?logo=arxiv" alt="Arxiv">
+  </a>
+  <a href="">
+    <img src="https://img.shields.io/badge/Model-Hugging%20Face-blue?logo=huggingface" alt="Hugging Face Models">
+  </a>
+  <a href="">
+    <img src="https://img.shields.io/badge/Dataset-Hugging%20Face-blue?logo=huggingface" alt="Hugging Face Datasets">
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/LICENSE-MIT-green.svg" alt="License">
+  </a>
+  <a href="https://www.python.org/downloads/release/python-312/">
+    <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python 3.10+">
+  </a>
 </div>
 
 
