@@ -4,8 +4,8 @@
 <h1 align="center"> ToolHazard: Scaling Adversarial Environments for Security Evaluation and Alignment of LLM-based Agents</a></h1>
 
 <div align="center">
-  <a href="">
-    <img src="[https://img.shields.io/badge/Paper-arXiv-b5212f.svg?logo=arxiv](https://arxiv.org/abs/2608.11878)" alt="Arxiv">
+  <a href="http://arxiv.org/abs/2601.10156">
+    <img src="https://img.shields.io/badge/Paper-arXiv-b5212f.svg?logo=arxiv" alt="Arxiv">
   </a>
   <a href="">
     <img src="https://img.shields.io/badge/Model-Hugging%20Face-blue?logo=huggingface" alt="Hugging Face Models">
