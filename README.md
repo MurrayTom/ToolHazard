@@ -5,7 +5,7 @@
 
 <div align="center">
   <a href="">
-    <img src="https://img.shields.io/badge/Paper-arXiv-b5212f.svg?logo=arxiv" alt="Arxiv">
+    <img src="[https://img.shields.io/badge/Paper-arXiv-b5212f.svg?logo=arxiv](https://arxiv.org/abs/2608.11878)" alt="Arxiv">
   </a>
   <a href="">
     <img src="https://img.shields.io/badge/Model-Hugging%20Face-blue?logo=huggingface" alt="Hugging Face Models">
