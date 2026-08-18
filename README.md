@@ -257,7 +257,8 @@ The trajectory-level reward encourages completion of the intended user task whil
 ```bibtex
 @article{mou2026toolhazard,
   title={ToolHazard: Scaling Adversarial Environments for Security Evaluation and Alignment of LLM-based Agents},
-  author={Mou, Yutao and Yang, Pengfei and Yin, Zhe and Xue, Zhangchi and Luan, Xiaotian and Yu, Dingyao and Zhang, Shikun and Ye, Wei},
+  author={Mou, Yutao and Yang, Pengfei and Yin, Zhe and Xue, Zhangchi and Luan, Xiaotian and Yu, Dingyao and Zhang, Tong and Zhang, Shikun and Ye, Wei},
+  journal={arXiv preprint arXiv:2608.11878},
   year={2026}
 }
 ```
